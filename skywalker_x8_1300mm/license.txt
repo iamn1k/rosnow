@@ -1,0 +1,11 @@
+Model Information:
+* title:	Skywalker X8 1300mm
+* source:	https://sketchfab.com/3d-models/skywalker-x8-1300mm-3088ef463c324801a1c8fb09de4185a8
+* author:	kir_fedorov (https://sketchfab.com/kir_fedorov)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Skywalker X8 1300mm" (https://sketchfab.com/3d-models/skywalker-x8-1300mm-3088ef463c324801a1c8fb09de4185a8) by kir_fedorov (https://sketchfab.com/kir_fedorov) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Krasnoyarsk Krai 3D Terrain with Model</title>
+    <meta property="og:description" content="Go beyond hillshade and show elevation in actual 3D." />
+    <meta charset='utf-8'>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel='stylesheet' href='https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css' />
+    <script src='https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js'></script>
+    <script src="https://unpkg.com/babylonjs@5.42.2/babylon.js"></script>
+    <script src="https://unpkg.com/babylonjs-loaders@5.42.2/babylonjs.loaders.min.js"></script>
+    <style>
+        body { margin: 0; padding: 0; }
+        html, body, #map { height: 100%; }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+    const map = (window.map = new maplibregl.Map({
+        container: 'map',
+        zoom: 6,
+        center: [92.857, 56.015], // Center coordinates for Krasnoyarsk Krai
+        pitch: 70,
+        bearing: 0,
+        antialias: true,
+        style: {
+            version: 8,
+            sources: {
+                osm: {
+                    type: 'raster',
+                    tiles: ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                    tileSize: 256,
+                    attribution: '&copy; OpenStreetMap Contributors',
+                    maxzoom: 19
+                },
+                terrainSource: {
+                    type: 'raster-dem',
+                    tiles: [
+                        'https://tiles.wifidb.net/data/jaxa_terrainrgb/{z}/{x}/{y}.png'
+                    ],
+                    tileSize: 256
+                }
+            },
+            layers: [
+                {
+                    id: 'osm',
+                    type: 'raster',
+                    source: 'osm'
+                }
+            ],
+            terrain: {
+                source: 'terrainSource',
+                exaggeration: 1.5
+            },
+            sky: {}
+        },
+        maxZoom: 18,
+        maxPitch: 85,
+        maxBounds: [
+            [90.0, 53.0], // Southwest coordinates
+            [96.0, 60.0]  // Northeast coordinates
+        ]
+    }));
+
+    // World matrix parameters
+    const worldOrigin = [92.857, 56.015]; // Center of Krasnoyarsk Krai
+    const worldAltitude = 0;
+
+    // Calculate mercator coordinates and scale
+    const worldOriginMercator = maplibregl.MercatorCoordinate.fromLngLat(worldOrigin, worldAltitude);
+    const worldScale = worldOriginMercator.meterInMercatorCoordinateUnits();
+
+    // Calculate world matrix
+    const worldMatrix = BABYLON.Matrix.Compose(
+        new BABYLON.Vector3(worldScale, worldScale, worldScale),
+        BABYLON.Quaternion.FromEulerAngles(0, 0, 0),
+        new BABYLON.Vector3(worldOriginMercator.x, worldOriginMercator.y, worldOriginMercator.z)
+    );
+
+    // Custom layer for the 3D model
+    const customLayer = {
+        id: '3d-model',
+        type: 'custom',
+        renderingMode: '3d',
+        onAdd(map, gl) {
+            this.engine = new BABYLON.Engine(gl, true, { useHighPrecisionMatrix: true });
+            this.scene = new BABYLON.Scene(this.engine);
+            this.scene.autoClear = false;
+            this.scene.detachControl();
+
+            this.camera = new BABYLON.ArcRotateCamera('camera', Math.PI / 2, Math.PI / 2, 100, BABYLON.Vector3.Zero(), this.scene);
+            this.camera.attachControl(gl.canvas, true);
+
+            const light = new BABYLON.HemisphericLight('light1', new BABYLON.Vector3(0, 1, 0), this.scene);
+            light.intensity = 0.7;
+
+            // Load GLTF model into the scene
+            BABYLON.SceneLoader.LoadAssetContainerAsync(
+                'http://localhost:8000/scene.gltf', // Update with your model URL
+                '',
+                this.scene
+            ).then((modelContainer) => {
+                modelContainer.addAllToScene();
+                const rootMesh = modelContainer.createRootMesh();
+                
+                // Position adjustments
+                rootMesh.position.x = worldOriginMercator.x;
+                rootMesh.position.z = worldOriginMercator.y;
+                rootMesh.position.y += 10; // Adjust height as necessary
+
+                // Adjust camera to focus on the model
+                this.camera.setTarget(rootMesh.position);
+                
+                console.log("Model successfully added to the map."); // Log message
+            }).catch((error) => {
+                console.error("Error loading model:", error);
+            });
+
+            this.map = map;
+        },
+        render(gl, matrix) {
+            const cameraMatrix = BABYLON.Matrix.FromArray(matrix);
+            const wvpMatrix = worldMatrix.multiply(cameraMatrix);
+            this.camera.freezeProjectionMatrix(wvpMatrix);
+            this.scene.render(false);
+            this.map.triggerRepaint(); // Trigger a repaint of the map
+        }
+    };
+
+    map.on('style.load', () => {
+        map.addLayer(customLayer);
+    });
+
+    map.addControl(new maplibregl.NavigationControl({
+        visualizePitch: true,
+        showZoom: true,
+        showCompass: true
+    }));
+</script>
+</body>
+</html>

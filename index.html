@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Krasnoyarsk Krai 3D Terrain with Model</title>
+    <meta property="og:description" content="Go beyond hillshade and show elevation in actual 3D." />
+    <meta charset='utf-8'>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel='stylesheet' href='https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css' />
+    <script src='https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js'></script>
+    <script src="https://unpkg.com/three@0.147.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.147.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.147.0/build/three.min.js"
+            }
+        }
+    </script>
+    <style>
+        body { margin: 0; padding: 0; }
+        html, body, #map { height: 100%; }
+        #form {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.9); /* Make it more opaque */
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            z-index: 1; /* Ensure it's above the map */
+        }
+        #form input {
+            margin-bottom: 5px;
+            width: 200px;
+        }
+        #form button {
+            width: 100%;
+        }
+        .overlay {
+            position: absolute;
+            top: 10px;
+            left: 220px; /* Adjusted to avoid overlap with the form */
+            z-index: 1; /* Ensure it's above the map */
+        }
+        .overlay button {
+            font: 600 12px/20px 'Helvetica Neue', Arial, Helvetica, sans-serif;
+            background-color: #3386c0;
+            color: #fff;
+            display: inline-block;
+            margin: 0;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        .overlay button:hover {
+            background-color: #4ea0da;
+        }
+    </style>
+</head>
+<body>
+<div id="form">
+    <h3>Input Coordinates</h3>
+    <div id="coordinates">
+        <input type="text" placeholder="Lng, Lat, Height (e.g. 92.857, 56.015, 10)" />
+    </div>
+    <button id="addCoordinate">Add Coordinate</button>
+    <button id="drawPath">Draw Path</button>
+</div>
+<div id="map"></div>
+<div class="overlay">
+    <button id="replay">Replay</button>
+</div>
+
+<script type="module">
+    const GLTFLoader = window.THREE.GLTFLoader;
+
+    const krasnoyarskBounds = [
+        [90.0, 53.0], // Southwest coordinates [lng, lat]
+        [96.0, 60.0]  // Northeast coordinates [lng, lat]
+    ];
+
+    const map = new maplibregl.Map({
+        container: 'map',
+        zoom: 6,
+        center: [92.857, 56.015],
+        pitch: 70,
+        bearing: 0,
+        antialias: true,
+        style: {
+            version: 8,
+            sources: {
+                osm: {
+                    type: 'raster',
+                    tiles: ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                    tileSize: 256,
+                    attribution: '&copy; OpenStreetMap Contributors',
+                    maxzoom: 19
+                },
+                terrainSource: {
+                    type: 'raster-dem',
+                    tiles: ['https://tiles.wifidb.net/data/jaxa_terrainrgb/{z}/{x}/{y}.png'],
+                    tileSize: 256
+                }
+            },
+            layers: [{
+                id: 'osm',
+                type: 'raster',
+                source: 'osm'
+            }],
+            terrain: {
+                source: 'terrainSource',
+                exaggeration: 1.5
+            },
+            sky: {}
+        },
+        maxZoom: 18,
+        maxPitch: 85,
+        maxBounds: krasnoyarskBounds
+    });
+
+    map.addControl(new maplibregl.NavigationControl({
+        visualizePitch: true,
+        showZoom: true,
+        showCompass: true
+    }));
+
+    const coordinates = [];
+    let line = null;
+    let point = null;
+    let animationFrameId;
+    let replaying = false;
+    let currentReplayIndex = 0;
+
+    const speed = 50; // speed in km/h
+    const kmToMeters = 1000; // conversion factor
+    const millisecondsInAnHour = 3600000; // milliseconds in an hour
+
+    document.getElementById('addCoordinate').addEventListener('click', () => {
+        const input = document.querySelector('#coordinates input').value;
+        if (input) {
+            const parts = input.split(',').map(part => parseFloat(part.trim()));
+            if (parts.length === 3) {
+                coordinates.push(parts); // Add [lng, lat, height]
+                document.querySelector('#coordinates input').value = ''; // Clear input
+            } else {
+                alert('Please enter in format: Lng, Lat, Height');
+            }
+        }
+    });
+
+    document.getElementById('drawPath').addEventListener('click', () => {
+        drawPath();
+    });
+
+    document.getElementById('replay').addEventListener('click', () => {
+        if (coordinates.length < 2) {
+            alert('Please enter at least 2 coordinates to replay.');
+            return;
+        }
+        currentReplayIndex = 0;
+        replaying = true;
+        animateReplay();
+    });
+
+    function drawPath() {
+        if (coordinates.length < 2) {
+            alert('Please enter at least 2 coordinates.');
+            return;
+        }
+
+        const lineCoordinates = coordinates.map(coord => [coord[0], coord[1]]);
+        const route = {
+            'type': 'FeatureCollection',
+            'features': [{
+                'type': 'Feature',
+                'geometry': {
+                    'type': 'LineString',
+                    'coordinates': lineCoordinates
+                }
+            }]
+        };
+
+        // Add route to the map
+        if (line) {
+            map.removeLayer('route');
+            map.removeSource('route');
+        }
+
+        map.addSource('route', {
+            'type': 'geojson',
+            'data': route
+        });
+
+        map.addLayer({
+            'id': 'route',
+            'source': 'route',
+            'type': 'line',
+            'layout': {
+                'line-join': 'round',
+                'line-cap': 'round'
+            },
+            'paint': {
+                'line-color': '#007cbf',
+                'line-width': 4
+            }
+        });
+
+        // Initialize point for animation
+        point = {
+            'type': 'FeatureCollection',
+            'features': [{
+                'type': 'Feature',
+                'geometry': {
+                    'type': 'Point',
+                    'coordinates': lineCoordinates[0] // Start at the first point
+                }
+            }]
+        };
+
+        // Add point to the map
+        if (point) {
+            map.removeLayer('point');
+            map.removeSource('point');
+        }
+
+        map.addSource('point', {
+            'type': 'geojson',
+            'data': point
+        });
+
+        map.addLayer({
+            'id': 'point',
+            'source': 'point',
+            'type': 'circle',
+            'paint': {
+                'circle-radius': 6,
+                'circle-color': '#ff0000'
+            }
+        });
+    }
+
+    function animateReplay() {
+        if (!replaying || currentReplayIndex >= coordinates.length) {
+            replaying = false;
+            return;
+        }
+
+        const lineCoordinates = coordinates.map(coord => [coord[0], coord[1]]);
+        const startPoint = lineCoordinates[currentReplayIndex];
+        point.features[0].geometry.coordinates = startPoint;
+
+        // Update the source with the new point data
+        map.getSource('point').setData(point);
+
+        // Calculate the next point index and the time to travel to the next point
+        if (currentReplayIndex < lineCoordinates.length - 1) {
+            const nextPoint = lineCoordinates[currentReplayIndex + 1];
+            const distance = getDistance(startPoint, nextPoint); // distance in meters
+            const time = (distance / (speed * kmToMeters)) * millisecondsInAnHour; // time in ms
+
+            currentReplayIndex++;
+            setTimeout(animateReplay, time); // wait for the duration to animate to the next point
+        } else {
+            replaying = false; // Stop replaying when we reach the last point
+        }
+    }
+
+    function getDistance(coord1, coord2) {
+        const R = 6371e3; // Earth's radius in meters
+        const lat1 = coord1[1] * Math.PI / 180; // Latitude in radians
+        const lat2 = coord2[1] * Math.PI / 180; // Latitude in radians
+        const dLat = (coord2[1] - coord1[1]) * Math.PI / 180;
+        const dLon = (coord2[0] - coord1[0]) * Math.PI / 180;
+
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(lat1) * Math.cos(lat2) *
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return R * c; // Distance in meters
+    }
+
+    const modelOrigin = [92.857, 56.015];
+    const modelAltitude = 0;
+    const modelRotate = [Math.PI / 2, 0, 0];
+
+    const modelAsMercatorCoordinate = maplibregl.MercatorCoordinate.fromLngLat(
+        modelOrigin,
+        modelAltitude
+    );
+
+    const modelTransform = {
+        translateX: modelAsMercatorCoordinate.x,
+        translateY: modelAsMercatorCoordinate.y,
+        translateZ: modelAsMercatorCoordinate.z,
+        rotateX: modelRotate[0],
+        rotateY: modelRotate[1],
+        rotateZ: modelRotate[2],
+        scale: modelAsMercatorCoordinate.meterInMercatorCoordinateUnits()
+    };
+
+    const customLayer = {
+        id: '3d-model',
+        type: 'custom',
+        renderingMode: '3d',
+        onAdd(map, gl) {
+            this.camera = new THREE.Camera();
+            this.scene = new THREE.Scene();
+
+            // Lighting
+            const directionalLight = new THREE.DirectionalLight(0xffffff);
+            directionalLight.position.set(0, -70, 100).normalize();
+            this.scene.add(directionalLight);
+            const directionalLight2 = new THREE.DirectionalLight(0xffffff);
+            directionalLight2.position.set(0, 70, 100).normalize();
+            this.scene.add(directionalLight2);
+
+            // Load 3D model
+            const loader = new GLTFLoader();
+            loader.load('http://localhost:8000/scene.gltf', (gltf) => {
+                this.model = gltf.scene;
+                this.scene.add(this.model);
+            });
+
+            // Set up the renderer
+            this.map = map;
+            this.renderer = new THREE.WebGLRenderer({
+                canvas: map.getCanvas(),
+                context: gl,
+                antialias: true
+            });
+            this.renderer.autoClear = false;
+        },
+        
+        render(gl, matrix) {
+            const rotationX = new THREE.Matrix4().makeRotationAxis(
+                new THREE.Vector3(1, 0, 0),
+                modelTransform.rotateX
+            );
+            const rotationY = new THREE.Matrix4().makeRotationAxis(
+                new THREE.Vector3(0, 1, 0),
+                modelTransform.rotateY
+            );
+            const rotationZ = new THREE.Matrix4().makeRotationAxis(
+                new THREE.Vector3(0, 0, 1),
+                modelTransform.rotateZ
+            );
+
+            const m = new THREE.Matrix4().fromArray(matrix);
+            const l = new THREE.Matrix4()
+                .makeTranslation(
+                    modelTransform.translateX,
+                    modelTransform.translateY,
+                    modelTransform.translateZ
+                )
+                .scale(new THREE.Vector3(
+                    modelTransform.scale,
+                    -modelTransform.scale,
+                    modelTransform.scale
+                ))
+                .multiply(rotationX)
+                .multiply(rotationY)
+                .multiply(rotationZ);
+
+            this.camera.projectionMatrix = m.multiply(l);
+            this.renderer.resetState();
+            this.renderer.render(this.scene, this.camera);
+            this.map.triggerRepaint();
+        }
+    };
+
+    map.on('style.load', () => {
+        map.addLayer(customLayer);
+        window.scene = customLayer.scene; // Access the scene globally
+    });
+</script>
+</body>
+</html>
