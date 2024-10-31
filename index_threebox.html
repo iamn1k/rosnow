@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <title>Krasnoyarsk Krai 3D Terrain with Model</title>
+    <meta property="og:description" content="Go beyond hillshade and show elevation in actual 3D." />
+    <meta charset='utf-8'>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel='stylesheet' href='https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css' />
+    <script src='https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js'></script>
+    <script src="https://unpkg.com/three@0.147.0/build/three.min.js"></script>
+    <script src="https://unpkg.com/three@0.147.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://unpkg.com/threebox-plugin@2.2.1/dist/threebox.min.js"></script>
+    <link href="https://unpkg.com/threebox-plugin@2.2.1/dist/threebox.css" rel="stylesheet" />
+    <style>
+        body { margin: 0; padding: 0; }
+        html, body, #map { height: 100%; }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+<script type="module">
+    const krasnoyarskBounds = [
+        [90.0, 53.0], // Southwest coordinates [lng, lat]
+        [96.0, 60.0]  // Northeast coordinates [lng, lat]
+    ];
+
+    const map = new maplibregl.Map({
+        container: 'map',
+        zoom: 6,
+        center: [92.857, 56.015], // Center coordinates for Krasnoyarsk Krai
+        pitch: 70,
+        bearing: 0,
+        antialias: true,
+        style: {
+            version: 8,
+            sources: {
+                osm: {
+                    type: 'raster',
+                    tiles: ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png'],
+                    tileSize: 256,
+                    attribution: '&copy; OpenStreetMap Contributors',
+                    maxzoom: 19
+                },
+                terrainSource: {
+                    type: 'raster-dem',
+                    tiles: [
+                        'https://tiles.wifidb.net/data/jaxa_terrainrgb/{z}/{x}/{y}.png'
+                    ],
+                    tileSize: 256
+                }
+            },
+            layers: [
+                {
+                    id: 'osm',
+                    type: 'raster',
+                    source: 'osm'
+                }
+            ],
+            terrain: {
+                source: 'terrainSource',
+                exaggeration: 1.5
+            },
+            sky: {}
+        },
+        maxZoom: 18,
+        maxPitch: 85,
+        maxBounds: krasnoyarskBounds // Restrict map to Krasnoyarsk Krai
+    });
+
+    map.addControl(new maplibregl.NavigationControl({
+        visualizePitch: true,
+        showZoom: true,
+        showCompass: true
+    }));
+
+    window.tb = new Threebox(map, map.getCanvas().getContext('webgl'), {
+        realWorld: true,
+        threebox: true
+    });
+
+    map.on('style.load', () => {
+        const modelOptions = {
+            obj: 'http://localhost:8000/scene.gltf', // Make sure this path is correct
+            type: 'gltf',
+            units: 'meters',
+            scale: { x: 100, y: 100, z: 100}, // Start with smaller scale
+            rotation: { x: 0, y: 0, z: 0 }
+        };
+
+        console.log("Loading model with options:", modelOptions); // Debug log
+
+        window.tb.loadObj(modelOptions, (model) => {
+            if (model) {
+                const modelCoordinates = [92.857, 56.015]; // Model location
+                model.setCoords(modelCoordinates); // Model location
+                window.tb.add(model); // Add the model to the scene
+                
+                // Создание красного шара рядом с моделью
+                const sphereGeometry = new THREE.SphereGeometry(10, 32, 32); // Размер шара
+                const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 }); // Красный цвет
+                const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+                
+                // Установка позиции шара немного смещенной от модели
+                sphere.position.set(modelCoordinates[0] + 0.01, modelCoordinates[1], modelCoordinates[2]);
+                
+                // Добавление шара в сцену
+                window.tb.add(sphere);
+
+                console.log("Model and sphere added with coordinates:", modelCoordinates); // Вывод координат в консоль
+            } else {
+                console.error("Model failed to load");
+            }
+        });
+    });
+
+    map.on('error', (e) => {
+        console.error('Map error:', e);
+    });
+</script>
+</body>
+</html>
