@@ -168,77 +168,81 @@
             alert('Please enter at least 2 coordinates.');
             return;
         }
-
-        const lineCoordinates = coordinates.map(coord => [coord[0], coord[1]]);
-        const route = {
-            'type': 'FeatureCollection',
-            'features': [{
-                'type': 'Feature',
-                'geometry': {
-                    'type': 'LineString',
-                    'coordinates': lineCoordinates
-                }
-            }]
-        };
-
-        // Add route to the map
-        if (line) {
-            map.removeLayer('route');
-            map.removeSource('route');
-        }
-
-        map.addSource('route', {
-            'type': 'geojson',
-            'data': route
+    
+        // Создаем массив координат для Three.js (с учетом высоты)
+        const lineCoordinatesThreeJS = coordinates.map(coord => {
+            const mercatorCoord = maplibregl.MercatorCoordinate.fromLngLat([coord[0], coord[1]], 0); // Используем 0 для высоты
+            return new THREE.Vector3(mercatorCoord.x, mercatorCoord.y, coord[2]); // Используем высоту
         });
-
-        map.addLayer({
-            'id': 'route',
-            'source': 'route',
-            'type': 'line',
-            'layout': {
-                'line-join': 'round',
-                'line-cap': 'round'
-            },
-            'paint': {
-                'line-color': '#007cbf',
-                'line-width': 4
+    
+        // Создаем кривую Catmull-Rom из точек
+        const path = new THREE.CatmullRomCurve3(lineCoordinatesThreeJS, true);
+    
+        // Создаем геометрию для линии
+        const pathGeometry = new THREE.BufferGeometry().setFromPoints(path.getPoints(50));
+        const pathMaterial = new THREE.LineBasicMaterial({ color: 0xff0000 });
+        const pathObject = new THREE.Line(pathGeometry, pathMaterial);
+        pathObject.name = 'pathLine';
+    
+        // Удаляем предыдущую линию из сцены, если она есть
+        if (customLayer.scene) {
+            const existingLine = customLayer.scene.getObjectByName('pathLine');
+            if (existingLine) {
+                customLayer.scene.remove(existingLine);
             }
-        });
-
-        // Initialize point for animation
+            customLayer.scene.add(pathObject);
+        } else {
+            console.error('Custom layer scene not initialized.');
+        }
+    
+        // Создаем массив координат для MapLibre (долгота и широта без высоты)
+        const lineCoordinatesMapLibre = coordinates.map(coord => [coord[0], coord[1]]);
+    
+        // Обновляем точку на карте
         point = {
             'type': 'FeatureCollection',
             'features': [{
                 'type': 'Feature',
                 'geometry': {
                     'type': 'Point',
-                    'coordinates': lineCoordinates[0] // Start at the first point
+                    'coordinates': lineCoordinatesMapLibre[0] // Начинаем с первой точки (lng, lat)
                 }
             }]
         };
-
-        // Add point to the map
+    
         if (point) {
             map.removeLayer('point');
             map.removeSource('point');
         }
-
+    
         map.addSource('point', {
             'type': 'geojson',
             'data': point
         });
-
+    
         map.addLayer({
             'id': 'point',
             'source': 'point',
             'type': 'circle',
             'paint': {
-                'circle-radius': 6,
+                'circle-radius': 60,
                 'circle-color': '#ff0000'
             }
         });
+    
+        // Обновляем позицию камеры для лучшего просмотра
+        const cameraPosition = new THREE.Vector3();
+        cameraPosition.setFromMatrixPosition(customLayer.scene.matrixWorld);
+        cameraPosition.z += Math.max(...lineCoordinatesThreeJS.map(v => v.z)) + 100; // Устанавливаем камеру выше линии
+        customLayer.camera.position.copy(cameraPosition);
     }
+    
+    
+    
+    
+    
+    
+    
 
     function animateReplay() {
         if (!replaying || currentReplayIndex >= coordinates.length) {
