@@ -682,6 +682,12 @@
         maxBounds: krasnoyarskBounds // Restrict map to Krasnoyarsk Krai
     });
 
+    map.addControl(new maplibregl.NavigationControl({
+        visualizePitch: true,
+        showZoom: true,
+        showCompass: true
+    }));
+    
     const tb = new Threebox(
         map,
         map.getCanvas().getContext('webgl'),
