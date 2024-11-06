@@ -590,7 +590,6 @@
 
 -->
 
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -606,7 +605,14 @@
     <style>
         body { margin: 0; padding: 0; }
         html, body, #map { height: 100%; }
-        #controls { position: absolute; top: 10px; left: 10px; background: white; padding: 10px; z-index: 1; }
+        #controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: white;
+            padding: 10px;
+            z-index: 1;
+        }
         .marker {
             background-color: red;
             border-radius: 50%;
@@ -685,9 +691,8 @@
     );
     window.tb = tb;
     const points = [];  // Массив для хранения точек маршрута
-    let planeModel = null;
+    let planeModel = null;  // Модель самолета
     let currentPointIndex = 0;  // Индекс текущей точки маршрута
-    let totalDistance = 0;  // Общая дистанция маршрута
 
     map.on('style.load', () => {
         map.addLayer({
@@ -768,7 +773,7 @@
             type: 'gltf',
             scale: 0.3,
             units: 'meters',
-            rotation: { x: 90, y: 0, z: 0 },
+            rotation: { x: 0, y: 0, z: 0 }, // Поворот модели по умолчанию
             anchor: 'center'
         };
 
@@ -788,15 +793,15 @@
             }
 
             // Переводим скорость из км/ч в м/с (1 км/ч = 1/3.6 м/с)
-            const flightSpeed = 100 / 3.6;  // скорость в м/с
+            const flightSpeed = 1000 / 3.6;  // скорость в м/с
 
             // Начинаем анимацию
-            let currentTime = 0;  // Текущее время анимации (в миллисекундах)
+            let currentTime = performance.now();  // Текущее время анимации (в миллисекундах)
             const duration = totalDistance / flightSpeed * 1000; // Общая длительность полета в миллисекундах
 
             function animate() {
-                currentTime += 1000 / 60; // Обновление каждую миллисекунду
-                const t = currentTime / duration; // Прогресс (от 0 до 1)
+                const elapsedTime = performance.now() - currentTime; // Время, прошедшее с начала анимации
+                const t = elapsedTime / duration; // Прогресс (от 0 до 1)
 
                 if (t < 1) {
                     // Находим две точки для интерполяции
@@ -819,7 +824,7 @@
 
                     // Вычисление угла для поворота самолета
                     const angle = calculateAngle(p1, p2);
-                    planeModel.setRotation({ x: 0, y: angle * (180 / Math.PI), z: 0 });  // Поворот только по оси Y
+                    planeModel.setRotation({ x: 90, y: angle * (180 / Math.PI), z: 0 });  // Поворот только по оси Y
 
                     window.tb.update();
                     requestAnimationFrame(animate); // Продолжаем анимацию
@@ -838,8 +843,8 @@
         const dLat = (lat2 - lat1) * Math.PI / 180;
         const dLon = (lon2 - lon1) * Math.PI / 180;
         const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         return R * c * 1000;  // Расстояние в метрах
     }
@@ -848,10 +853,8 @@
     function calculateAngle(p1, p2) {
         const dx = p2.lng - p1.lng;
         const dy = p2.lat - p1.lat;
-        return Math.atan2(dy, dx);
+        return Math.atan2(dy, dx); // Возвращаем угол в радианах
     }
-
 </script>
 </body>
 </html>
-
