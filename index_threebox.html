@@ -750,7 +750,30 @@
             });
 
             tb.add(line);
+            // Draw the vertical line at the end of the segment
+            const line_vertical = tb.line({
+                geometry: [
+                    [start.lng, start.lat, start.alt],
+                    [start.lng, start.lat, 0]
+                ],
+                color: '#dd0000',
+                width: 1,
+                opacity: .5
+            })
+            tb.add(line_vertical);
         }
+
+        const line_vertical = tb.line({
+            geometry: [
+                [points[points.length - 1].lng, points[points.length - 1].lat, points[points.length - 1].alt],
+                [points[points.length - 1].lng, points[points.length - 1].lat, 0]
+            ],
+            color: '#dd0000',
+            width: 1,
+            opacity: .5
+        })
+        tb.add(line_vertical);
+
 
         tb.update();
         alert("3D путь построен!");
