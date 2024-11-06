@@ -799,6 +799,14 @@
             let currentTime = performance.now();  // Текущее время анимации (в миллисекундах)
             const duration = totalDistance / flightSpeed * 1000; // Общая длительность полета в миллисекундах
 
+            // Функция для вычисления угла наклона по оси Z (по высоте)
+            function calculateTilt(p1, p2) {
+                const horizontalDistance = calculateDistance(p1.lat, p1.lng, p2.lat, p2.lng); // Горизонтальное расстояние между точками
+                const heightDifference = p2.alt - p1.alt; // Разница по высоте
+                return -1 * Math.atan2(heightDifference, horizontalDistance); // Угол наклона
+            }
+
+            // Начинаем анимацию
             function animate() {
                 const elapsedTime = performance.now() - currentTime; // Время, прошедшее с начала анимации
                 const t = elapsedTime / duration; // Прогресс (от 0 до 1)
@@ -823,8 +831,11 @@
                     planeModel.setCoords([pos.lng, pos.lat, pos.alt]);
 
                     // Вычисление угла для поворота самолета
-                    const angle = calculateAngle(p1, p2);
-                    planeModel.setRotation({ x: 90, y: angle * (180 / Math.PI), z: 0 });  // Поворот только по оси Y
+                    const angle = calculateAngle(p1, p2); // Угол поворота по оси Y
+                    const tilt = calculateTilt(p1, p2); // Угол наклона по оси Z
+
+                    // Поворот модели самолета
+                    planeModel.setRotation({ x: 90, y: angle * (180 / Math.PI), z: tilt * (180 / Math.PI) });  // Поворот по Y и Z
 
                     window.tb.update();
                     requestAnimationFrame(animate); // Продолжаем анимацию
