@@ -620,9 +620,19 @@
             height: 20px;
             cursor: pointer;
         }
+        #toggle2D {
+            position: absolute;
+            top: 10.8%; /* Позиция под стандартными контролами */
+            z-index: 2;
+            margin-left: 97.7%;
+            background-color: #ffffff;
+            border: 1px solid #ccc;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
+<button id="toggle2D" style="display: block; margin-top: 10px;">2D</button>
 <div id="controls">
     <h3>Введите координаты</h3>
     <input type="text" id="lat" placeholder="Широта">
@@ -631,7 +641,7 @@
     <button id="addPoint">Добавить точку</button>
     <button id="drawPath">Построить путь</button>
     <button id="startFlight" style="display:none;">Начать полет</button>
-
+    
     <h3>Время действия сигнала (sec)</h3>
     <div id="timer">0</div> <!-- Секундомер -->
 </div>
@@ -690,6 +700,24 @@
         showZoom: true,
         showCompass: true
     }));
+    
+    document.getElementById('toggle2D').addEventListener('click', () => {
+        const currentPitch = map.getPitch();
+    
+        if (currentPitch > 0) {
+            // Переключаем на 2D (вид сверху)
+            map.setPitch(0);  // Убираем наклон
+            map.setBearing(0);  // Убираем вращение
+            map.setZoom(6);  // Устанавливаем обычный масштаб
+            document.getElementById('toggle2D').textContent = '3D';
+        } else {
+            // Переключаем на 3D
+            map.setPitch(70);  // Устанавливаем наклон для 3D
+            map.setBearing(0);  // Устанавливаем нормальное направление
+            map.setZoom(6);  // Масштаб для 3D
+            document.getElementById('toggle2D').textContent = '2D';
+        }
+    });
     
 
     
