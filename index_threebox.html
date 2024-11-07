@@ -688,6 +688,8 @@
         showCompass: true
     }));
     
+
+    
     const tb = new Threebox(
         map,
         map.getCanvas().getContext('webgl'),
@@ -699,6 +701,89 @@
     const points = [];  // Массив для хранения точек маршрута
     let planeModel = null;  // Модель самолета
     let currentPointIndex = 0;  // Индекс текущей точки маршрута
+
+    // Функция для загрузки модели вышки
+    function loadTowerModel(lat, lng, alt) {
+        const towerModelUrl = 'http://localhost:9000/tower.glb'; // Укажите правильный путь к вашему файлу GLB
+        const options = {
+            obj: towerModelUrl,
+            type: 'gltf',
+            scale: 1000,
+            units: 'meters',
+            rotation: { x: 90, y: 0, z: 0 },
+            anchor: 'center'
+        };
+        window.tb.loadObj(options, function (model) {
+            model.setCoords([lng, lat, alt]); // Устанавливаем координаты с высотой рельефа
+            window.tb.add(model);
+            window.tb.update();
+            console.log("Model loaded at height:", alt);
+        });
+    }
+
+    // Функция для создания вышек с учетом рельефа
+    async function placeTowers(distance) {
+        // Центр Красноярского края
+        const centerLat = 56.015;
+        const centerLng = 92.857;
+
+        // Создаем геометрический объект с необходимыми свойствами
+        const feature = {
+            type: "Point",
+            coordinates: [centerLng, centerLat],
+            properties: {
+                level: 0, // Уровень, например, для земли
+                levelHeight: 0, // Если есть особая высота уровня
+                base_height: 0, // Начальная высота рельефа
+                min_height: 0, // Минимальная высота
+                height: 0 // Общая высота для расчета
+            }
+        };
+
+        // Примерная модель или точка для расчета высоты
+        const pointObj = new THREE.Object3D(); // Создаем временный объект 3D для расчета высоты
+
+        // Используем getObjectHeightOnFloor для определения высоты рельефа в центре
+        const centerHeight = await tb.getObjectHeightOnFloor(feature, pointObj, 0); // 0 - базовый уровень
+
+        // Размещение модели для центра
+        loadTowerModel(centerLat, centerLng, centerHeight);
+
+        const bearingOffsets = [0, 72, 144, 216, 288]; // Углы для размещения вышек (разбиваем круг на 5 частей)
+
+        for (let i = 0; i < bearingOffsets.length; i++) {
+            const angle = bearingOffsets[i] * Math.PI / 180; // Преобразуем угол в радианы
+            const latOffset = Math.sin(angle) * (distance / 6371000) * (180 / Math.PI); // Расчет смещения по широте
+            const lngOffset = Math.cos(angle) * (distance / 6371000) * (180 / Math.PI) / Math.cos(centerLat * Math.PI / 180); // Расчет смещения по долготе
+
+            const newLat = centerLat + latOffset;
+            const newLng = centerLng + lngOffset;
+
+            // Создаем новый объект для расчета высоты новой точки
+            const newFeature = {
+                type: "Point",
+                coordinates: [newLng, newLat],
+                properties: {
+                    level: 0,
+                    levelHeight: 0,
+                    base_height: 0,
+                    min_height: 0,
+                    height: 0
+                }
+            };
+
+            // Получаем высоту рельефа для новых точек, используя getObjectHeightOnFloor
+            const towerHeight = await tb.getObjectHeightOnFloor(newFeature, pointObj, 0); // 0 - уровень земли
+
+            // Размещение модели для каждой вышки с вычисленной высотой
+            loadTowerModel(newLat, newLng, towerHeight);
+        }
+    }
+
+    placeTowers(20000);
+
+        
+
 
     map.on('style.load', () => {
         map.addLayer({
@@ -917,6 +1002,8 @@
         const dy = p2.lat - p1.lat;
         return Math.atan2(dy, dx); // Возвращаем угол в радианах
     }
+    
+
     
    
  
