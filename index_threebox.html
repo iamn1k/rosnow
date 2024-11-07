@@ -631,6 +631,9 @@
     <button id="addPoint">Добавить точку</button>
     <button id="drawPath">Построить путь</button>
     <button id="startFlight" style="display:none;">Начать полет</button>
+
+    <h3>Время действия сигнала (sec)</h3>
+    <div id="timer">0</div> <!-- Секундомер -->
 </div>
 <div id="map"></div>
 <script type="module">
@@ -721,6 +724,9 @@
         });
     }
     
+    
+
+    // Изменение проверки на пересечение с полусферой (исправленный радиус)
     function createSignalDome(lat, lng, height, radius) {
         // Создаем полусферу с помощью Threebox
         const dome = window.tb.sphere({
@@ -732,14 +738,12 @@
             radius: radius,
             units: 'meter',
             phiLength: Math.PI,  // Ограничиваем угол phi до 180 градусов (полусфера)
-            anchor: 'center',  // Центрируем сферу по координатам (используем center)
+            anchor: 'center',  // Центрируем сферу по координатам
             adjustment: { x: 0, y: 0, z: -0.5 }  // Сдвиг на 0, чтобы центр совпал с координатами
         })
-        .setCoords([lng, lat, height + radius]);  // Устанавливаем координаты (добавляем высоту и радиус полусферы)
-        // Добавляем полусферу в Threebox
+        .setCoords([lng, lat, height + radius]);  // Устанавливаем координаты
         window.tb.add(dome);
         window.tb.update();
-    
         console.log("Signal dome created at height:", height, "with radius:", radius);
     }
     
@@ -748,7 +752,8 @@
     async function placeTowers(distance, signalRadius) {
         const centerLat = 56.015;
         const centerLng = 92.857;
-    
+        const towers = [];  // Массив для хранения данных о башнях
+        window.towers = towers;
         const feature = {
             type: "Point",
             coordinates: [centerLng, centerLat],
@@ -763,9 +768,11 @@
     
         const pointObj = new THREE.Object3D();
         const centerHeight = await tb.getObjectHeightOnFloor(feature, pointObj, 0);
-        
+    
         await loadTowerModel(centerLat, centerLng, centerHeight);
         createSignalDome(centerLat, centerLng, centerHeight, signalRadius);
+    
+        window.towers.push({ lat: centerLat, lng: centerLng, height: centerHeight, signalRadius });
     
         const bearingOffsets = [0, 72, 144, 216, 288];
     
@@ -791,12 +798,15 @@
             const towerHeight = await tb.getObjectHeightOnFloor(newFeature, pointObj, 0);
             await loadTowerModel(newLat, newLng, towerHeight);
             createSignalDome(newLat, newLng, towerHeight, signalRadius);
-            
+    
+            window.towers.push({ lat: newLat, lng: newLng, height: towerHeight, signalRadius });
+    
             return { newLat, newLng, towerHeight };
         });
     
         const results = await Promise.all(heightsPromises);
         console.log("Towers placed with heights:", results);
+        console.log("All Towers:", window.towers);  // Печатаем массив башен для проверки
     }
     
     placeTowers(20000, 300);
@@ -943,50 +953,93 @@
                 };
             }
     
-            // Начинаем анимацию
+            let isInsideSignal = false;  // Флаг, показывающий, находится ли самолет внутри сферы
+            let timeInsideSignal = 0;  // Время внутри сигнала в секундах
+            let signalTimer = null;  // Таймер
+
+            // Функция для проверки, находится ли точка внутри полусферы с учетом высоты
+            function isInsideSignalDome(lat, lng, altitude) {
+                for (const tower of window.towers) {
+                    // Расстояние по горизонтали (поверхность Земли)
+                    const horizontalDistance = calculateDistance(lat, lng, tower.lat, tower.lng);
+                    
+                    // Разница в высоте
+                    const verticalDistance = altitude - tower.height;
+
+                    // Полное трехмерное расстояние с учетом горизонтального и вертикального расстояний
+                    const distance = Math.sqrt(Math.pow(horizontalDistance, 2) + Math.pow(verticalDistance, 2));
+
+                    console.log(`Horizontal Distance: ${horizontalDistance}, Vertical Distance: ${verticalDistance}, Total Distance: ${distance}`);
+                    
+                    // Проверяем, если расстояние меньше или равно радиусу сигнала
+                    if (distance <= tower.signalRadius * 10 * 2.17 ) {
+                        console.log("inside sphere!!!");
+                        return true;  // Если самолет находится внутри хотя бы одной сферы
+                    }
+                }
+                return false;  // Если самолет вне всех сфер
+            }
+
+
+            // Функция для обновления секундомера
+            function updateTimer() {
+                const timerElement = document.getElementById('timer');
+                if (isInsideSignal) {
+                    timeInsideSignal += 0.1;  // Увеличиваем время на 0.1 секунды (каждую десятую долю)
+                    timerElement.textContent = timeInsideSignal.toFixed(2);  // Отображаем время с точностью до сотых
+                }
+            }
+
+            // Анимация полета
             function animate() {
                 const currentTime = performance.now();
-                const elapsedTime = currentTime - startTime;  // Время с начала анимации
-    
-                // Общий прогресс на всем пути (от 0 до 1)
+                const elapsedTime = currentTime - startTime;
                 progress = Math.min(elapsedTime / duration, 1);
-    
-                // Находим текущий сегмент и прогресс в этом сегменте
+
+                // Находим текущий сегмент
                 let segmentProgress = (elapsedTime / duration) * (points.length - 1);
-                currentSegment = Math.floor(segmentProgress); // Индекс текущего сегмента
-                let nextSegment = currentSegment + 1; // Следующий сегмент
-    
+                currentSegment = Math.floor(segmentProgress);
+                let nextSegment = currentSegment + 1;
+
                 if (nextSegment >= points.length) {
-                    nextSegment = points.length - 1;  // Убедимся, что не выйдем за пределы массива
+                    nextSegment = points.length - 1;
                 }
-    
-                // Получаем текущие точки
+
                 let p1 = points[currentSegment];
                 let p2 = points[nextSegment];
-    
-                // Интерполируем между текущими точками
+
                 const segmentProgressNormalized = segmentProgress - currentSegment;
                 const pos = interpolate(p1, p2, segmentProgressNormalized);
                 planeModel.setCoords([pos.lng, pos.lat, pos.alt]);
-    
-                // Вычисляем углы для поворота самолета
+
+                // Проверяем, находится ли самолет внутри сферы
+                const insideSignal = isInsideSignalDome(pos.lat, pos.lng, pos.alt);
+
+                // Если самолет входит в радиус сигнала и еще не был внутри, запускаем таймер
+                if (insideSignal && !isInsideSignal) {
+                    isInsideSignal = true;
+                    //timeInsideSignal = 0;  // Сбрасываем время, когда самолет входит в радиус
+                    signalTimer = setInterval(updateTimer, 100);  // Запускаем таймер (обновляем каждую секунду)
+                }
+
+                // Если самолет выходит из радиуса сигнала и был внутри, останавливаем таймер
+                if (!insideSignal && isInsideSignal) {
+                    isInsideSignal = false;
+                    clearInterval(signalTimer);  // Останавливаем таймер
+                }
+
+                // Поворот и другие действия с самолетом
                 const angle = calculateAngle(p1, p2);
                 const tilt = calculateTilt(p1, p2);
-    
-                // Поворот модели самолета
-                planeModel.setRotation({
-                    x: 90,
-                    y: angle * (180 / Math.PI),
-                    z: tilt * (180 / Math.PI)
-                });
-    
+                planeModel.setRotation({ x: 90, y: angle * (180 / Math.PI), z: tilt * (180 / Math.PI) });
+
                 window.tb.update();
-    
-                // Продолжаем анимацию, если не завершено
+
                 if (progress < 1) {
                     requestAnimationFrame(animate);
                 } else {
                     alert("Полет завершен!");
+                    clearInterval(signalTimer);  // Останавливаем таймер по завершению полета
                 }
             }
     
