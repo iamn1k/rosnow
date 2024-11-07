@@ -702,7 +702,6 @@
     let planeModel = null;  // Модель самолета
     let currentPointIndex = 0;  // Индекс текущей точки маршрута
 
-    // Функция для загрузки модели вышки
     function loadTowerModel(lat, lng, alt) {
         const towerModelUrl = 'http://localhost:9000/tower.glb'; // Укажите правильный путь к вашему файлу GLB
         const options = {
@@ -713,6 +712,7 @@
             rotation: { x: 90, y: 0, z: 0 },
             anchor: 'center'
         };
+    
         window.tb.loadObj(options, function (model) {
             model.setCoords([lng, lat, alt]); // Устанавливаем координаты с высотой рельефа
             window.tb.add(model);
@@ -720,46 +720,59 @@
             console.log("Model loaded at height:", alt);
         });
     }
-
-    // Функция для создания вышек с учетом рельефа
-    async function placeTowers(distance) {
-        // Центр Красноярского края
+    
+    // Функция для создания полусферы вокруг вышки
+    function createSignalDome(lat, lng, height, radius) {
+        // Создаем геометрию полусферы (половина сферы)
+        const geometry = new THREE.SphereGeometry(radius, 32, 32, 0, Math.PI); // Полусфера
+        const material = new THREE.MeshBasicMaterial({
+            color: 0x00ff00, // Зеленый цвет
+            transparent: true,
+            opacity: 0.3, // Полупрозрачность
+            side: THREE.DoubleSide // Покажем обе стороны
+        });
+        const sphere = new THREE.Mesh(geometry, material);
+    
+        // Помещаем полусферу на поверхность земли, используя высоту
+        sphere.position.set(lng, lat, height + radius); // Поднимаем полусферу на высоту рельефа + радиус
+    
+        // Добавляем полусферу в Three.js сцену
+        window.tb.add(sphere);
+        window.tb.update();
+        console.log("Signal dome created at height:", height, "with radius:", radius);
+    }
+    
+    async function placeTowers(distance, signalRadius) {
         const centerLat = 56.015;
         const centerLng = 92.857;
-
-        // Создаем геометрический объект с необходимыми свойствами
+    
         const feature = {
             type: "Point",
             coordinates: [centerLng, centerLat],
             properties: {
-                level: 0, // Уровень, например, для земли
-                levelHeight: 0, // Если есть особая высота уровня
-                base_height: 0, // Начальная высота рельефа
-                min_height: 0, // Минимальная высота
-                height: 0 // Общая высота для расчета
+                level: 0,
+                levelHeight: 0,
+                base_height: 0,
+                min_height: 0,
+                height: 0
             }
         };
-
-        // Примерная модель или точка для расчета высоты
-        const pointObj = new THREE.Object3D(); // Создаем временный объект 3D для расчета высоты
-
-        // Используем getObjectHeightOnFloor для определения высоты рельефа в центре
-        const centerHeight = await tb.getObjectHeightOnFloor(feature, pointObj, 0); // 0 - базовый уровень
-
-        // Размещение модели для центра
-        loadTowerModel(centerLat, centerLng, centerHeight);
-
-        const bearingOffsets = [0, 72, 144, 216, 288]; // Углы для размещения вышек (разбиваем круг на 5 частей)
-
-        for (let i = 0; i < bearingOffsets.length; i++) {
-            const angle = bearingOffsets[i] * Math.PI / 180; // Преобразуем угол в радианы
-            const latOffset = Math.sin(angle) * (distance / 6371000) * (180 / Math.PI); // Расчет смещения по широте
-            const lngOffset = Math.cos(angle) * (distance / 6371000) * (180 / Math.PI) / Math.cos(centerLat * Math.PI / 180); // Расчет смещения по долготе
-
+    
+        const pointObj = new THREE.Object3D();
+        const centerHeight = await tb.getObjectHeightOnFloor(feature, pointObj, 0);
+        
+        await loadTowerModel(centerLat, centerLng, centerHeight);
+        createSignalDome(centerLat, centerLng, centerHeight, signalRadius);
+    
+        const bearingOffsets = [0, 72, 144, 216, 288];
+    
+        const heightsPromises = bearingOffsets.map(async (angle) => {
+            const angleRad = angle * Math.PI / 180;
+            const latOffset = Math.sin(angleRad) * (distance / 6371000) * (180 / Math.PI);
+            const lngOffset = Math.cos(angleRad) * (distance / 6371000) * (180 / Math.PI) / Math.cos(centerLat * Math.PI / 180);
             const newLat = centerLat + latOffset;
             const newLng = centerLng + lngOffset;
-
-            // Создаем новый объект для расчета высоты новой точки
+    
             const newFeature = {
                 type: "Point",
                 coordinates: [newLng, newLat],
@@ -771,19 +784,20 @@
                     height: 0
                 }
             };
-
-            // Получаем высоту рельефа для новых точек, используя getObjectHeightOnFloor
-            const towerHeight = await tb.getObjectHeightOnFloor(newFeature, pointObj, 0); // 0 - уровень земли
-
-            // Размещение модели для каждой вышки с вычисленной высотой
-            loadTowerModel(newLat, newLng, towerHeight);
-        }
+    
+            const towerHeight = await tb.getObjectHeightOnFloor(newFeature, pointObj, 0);
+            await loadTowerModel(newLat, newLng, towerHeight);
+            createSignalDome(newLat, newLng, towerHeight, signalRadius);
+            
+            return { newLat, newLng, towerHeight };
+        });
+    
+        const results = await Promise.all(heightsPromises);
+        console.log("Towers placed with heights:", results);
     }
-
-    placeTowers(20000);
-
-        
-
+    
+    placeTowers(20000, 3000);
+    
 
     map.on('style.load', () => {
         map.addLayer({
