@@ -721,26 +721,30 @@
         });
     }
     
-    // Функция для создания полусферы вокруг вышки
     function createSignalDome(lat, lng, height, radius) {
-        // Создаем геометрию полусферы (половина сферы)
-        const geometry = new THREE.SphereGeometry(radius, 32, 32, 0, Math.PI); // Полусфера
-        const material = new THREE.MeshBasicMaterial({
-            color: 0x00ff00, // Зеленый цвет
-            transparent: true,
-            opacity: 0.3, // Полупрозрачность
-            side: THREE.DoubleSide // Покажем обе стороны
-        });
-        const sphere = new THREE.Mesh(geometry, material);
+        // Создаем полусферу с помощью Threebox
+        const dome = window.tb.sphere({
+            color: 'green',  // Зеленый цвет
+            material: 'MeshBasicMaterial', // Простой материал
+            transparent: true,  // Сделать полусферу прозрачной
+            opacity: 0.3,  // Устанавливаем прозрачность
+            side: THREE.DoubleSide, // Покажем обе стороны
+            radius: radius,
+            units: 'meter',
+            phiLength: Math.PI,  // Ограничиваем угол phi до 180 градусов (полусфера)
+            anchor: 'center',  // Центрируем сферу по координатам (используем center)
+            adjustment: { x: 0, y: 0, z: -0.5 }  // Сдвиг на 0, чтобы центр совпал с координатами
+        })
+        .setCoords([lng, lat, height + radius]);  // Устанавливаем координаты (добавляем высоту и радиус полусферы)
     
-        // Помещаем полусферу на поверхность земли, используя высоту
-        sphere.position.set(lng, lat, height + radius); // Поднимаем полусферу на высоту рельефа + радиус
-    
-        // Добавляем полусферу в Three.js сцену
-        window.tb.add(sphere);
+        // Добавляем полусферу в Threebox
+        window.tb.add(dome);
         window.tb.update();
+    
         console.log("Signal dome created at height:", height, "with radius:", radius);
     }
+    
+    
     
     async function placeTowers(distance, signalRadius) {
         const centerLat = 56.015;
@@ -796,7 +800,8 @@
         console.log("Towers placed with heights:", results);
     }
     
-    placeTowers(20000, 3000);
+    placeTowers(20000, 300);
+    
     
 
     map.on('style.load', () => {
