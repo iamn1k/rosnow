@@ -724,7 +724,7 @@
     function createSignalDome(lat, lng, height, radius) {
         // Создаем полусферу с помощью Threebox
         const dome = window.tb.sphere({
-            color: 'green',  // Зеленый цвет
+            color: 'blue',  // Зеленый цвет
             material: 'MeshBasicMaterial', // Простой материал
             transparent: true,  // Сделать полусферу прозрачной
             opacity: 0.3,  // Устанавливаем прозрачность
@@ -736,7 +736,6 @@
             adjustment: { x: 0, y: 0, z: -0.5 }  // Сдвиг на 0, чтобы центр совпал с координатами
         })
         .setCoords([lng, lat, height + radius]);  // Устанавливаем координаты (добавляем высоту и радиус полусферы)
-    
         // Добавляем полусферу в Threebox
         window.tb.add(dome);
         window.tb.update();
@@ -842,9 +841,8 @@
             alert("Добавьте хотя бы две точки для построения пути.");
             return;
         }
-
+        
         tb.world.clear();
-
         for (let i = 0; i < points.length - 1; i++) {
             const start = points[i];
             const end = points[i + 1];
@@ -868,7 +866,7 @@
                 ],
                 color: '#dd0000',
                 width: 1,
-                opacity: .5
+                opacity: 1
             })
             tb.add(line_vertical);
         }
@@ -880,7 +878,7 @@
             ],
             color: '#dd0000',
             width: 1,
-            opacity: .5
+            opacity: 1
         })
         tb.add(line_vertical);
 
@@ -888,6 +886,7 @@
         tb.update();
         alert("3D путь построен!");
         document.getElementById('startFlight').style.display = 'inline-block';
+        placeTowers(20000, 300);
     }
 
     // Построение пути
@@ -914,7 +913,7 @@
             planeModel.setCoords([points[0].lng, points[0].lat, points[0].alt]);
             window.tb.add(planeModel);
             window.tb.update();
-    
+            
             // Расчет общей дистанции маршрута
             let totalDistance = 0;
             for (let i = 0; i < points.length - 1; i++) {
@@ -1023,9 +1022,6 @@
     }
     
 
-    
-   
- 
 </script>
 </body>
 </html>
