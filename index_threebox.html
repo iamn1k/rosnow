@@ -225,24 +225,6 @@
         }
     });
 
-    // Добавить точку по координатам
-    document.getElementById('addPoint').addEventListener('click', () => {
-        const lat = parseFloat(document.getElementById('lat').value);
-        const lng = parseFloat(document.getElementById('lng').value);
-        const alt = parseFloat(document.getElementById('alt').value);
-
-        if (!isNaN(lat) && !isNaN(lng) && !isNaN(alt)) {
-            points.push({ lat, lng, alt });
-            alert(`Точка добавлена: [${lat}, ${lng}, ${alt}]`);
-
-            const marker = new maplibregl.Marker()
-                .setLngLat([lng, lat])
-                .setPopup(new maplibregl.Popup().setText('Точка маршрута'))
-                .addTo(map);
-        } else {
-            alert("Пожалуйста, введите валидные координаты.");
-        }
-    });
     
 
     function loadTowerModel(lat, lng, alt) {
