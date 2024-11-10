@@ -411,14 +411,22 @@
 
             // Функция для расчета уровня сигнала по логарифмической шкале
             function calculateSignalStrength(distance, signalRadius, minDb = -120, maxDb = 0) {
-                const distanceFactor = distance / signalRadius;
-                const signalDb = maxDb - (20 * Math.log10(distanceFactor));  // Логарифмическая зависимость
-                return Math.max(minDb, Math.min(maxDb, signalDb));  // Ограничиваем значения от minDb до maxDb
+                // Проверка, если расстояние больше или равно пороговому значению
+                if (distance >= signalRadius * 10 * 2.17) {
+                    return minDb; // Если дистанция больше или равна максимальному радиусу, возвращаем минимальный уровень сигнала
+                }
+
+                // Масштабирование от minDb до maxDb
+                const maxDistance = signalRadius * 10 * 2.17;
+                const signalDb = maxDb - (maxDb - minDb) * (distance / maxDistance); // Линейная интерполяция
+
+                return Math.max(minDb, Math.min(maxDb, signalDb)); // Ограничиваем значения от minDb до maxDb
             }
 
+
             // Функция для расчета уровня шума
-            function calculateNoiseLevel(signalStrength) {
-                return -signalStrength;  // Уровень шума обратно пропорционален уровню сигнала
+            function calculateNoiseLevel(signalStrength,minDb = -120) {
+                return minDb - signalStrength ;  // Уровень шума обратно пропорционален уровню сигнала
             }
             // Функция для обновления секундомера и уровня сигнала
             function updateSignalInfo(lat, lng, altitude) {
