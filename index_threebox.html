@@ -285,8 +285,23 @@
                 const signalRadius = parseFloat(document.getElementById('signalRadius').value);
 
                 if (!isNaN(height) && !isNaN(signalRadius)) {
+                    const feature = {
+                        type: "Point",
+                        coordinates: [lng, lat],
+                        properties: {
+                            level: 0,
+                            levelHeight: 0,
+                            base_height: 0,
+                            min_height: 0,
+                            height: 0
+                        }
+                    };
                     // Создание модели вышки связи
-                    loadTowerModel(lat, lng, height);
+                    const pointObj = new THREE.Object3D();
+                    const towerHeight = tb.getObjectHeightOnFloor(feature, pointObj, 0);
+                    loadTowerModel(lat, lng, towerHeight);
+
+
 
                     // Создание полусферы сигнала
                     createSignalDome(lat, lng, height, signalRadius);
