@@ -54,6 +54,20 @@
             padding: 10px;
             z-index: 3;
         }
+        #addTowerBtn {
+            background-color: lightblue;
+            border: 1px solid #ccc;
+            padding: 10px;
+            cursor: pointer;
+        }
+        #interactiveTowerContainer {
+            display: none;
+            position: absolute;
+            background: white;
+            border: 1px solid #ccc;
+            padding: 10px;
+            z-index: 3;
+        }
     </style>
 </head>
 <body>
@@ -88,6 +102,18 @@
         <input type="text" id="pointAlt" placeholder="Высота в метрах">
         <button id="addInteractivePoint">Добавить точку</button>
         <button id="cancelInteractivePoint">Отменить</button>
+    </div>
+    <h3>Интерактивное добавление вышек связи</h3>
+    <button id="addTowerBtn">Добавить вышку</button>
+    
+    <div id="interactiveTowerContainer">
+        <h4>Введите высоту и радиус сигнала</h4>
+        <label for="towerHeight">Высота:</label>
+        <input type="text" id="towerHeight" placeholder="Высота в метрах"><br><br>
+        <label for="signalRadius">Радиус сигнала:</label>
+        <input type="text" id="signalRadius" placeholder="Радиус в метрах"><br><br>
+        <button id="addInteractiveTower">Добавить вышку</button>
+        <button id="cancelInteractiveTower">Отменить</button>
     </div>
 </div>
 <div id="map"></div>
@@ -225,8 +251,58 @@
         }
     });
 
-    
+    let interactiveTowerMode = false; // Флаг для интерактивного добавления вышек
 
+    // Добавление интерактивной вышки связи
+    document.getElementById('addTowerBtn').addEventListener('click', () => {
+        interactiveTowerMode = !interactiveTowerMode;
+        if (interactiveTowerMode) {
+            document.getElementById('interactiveTowerContainer').style.display = 'block';
+            alert("Нажмите на карту, чтобы добавить вышку.");
+        } else {
+            document.getElementById('interactiveTowerContainer').style.display = 'none';
+        }
+    });
+
+    // Отмена добавления вышки
+    document.getElementById('cancelInteractiveTower').addEventListener('click', () => {
+        interactiveTowerMode = false;
+        document.getElementById('interactiveTowerContainer').style.display = 'none';
+    });
+
+    // Добавление вышки по клику на карту
+    map.on('click', (e) => {
+        if (interactiveTowerMode) {
+            const lat = e.lngLat.lat;
+            const lng = e.lngLat.lng;
+
+            // Отображаем форму для ввода высоты и радиуса
+            document.getElementById('interactiveTowerContainer').style.display = 'block';
+            document.getElementById('towerHeight').focus();
+
+            document.getElementById('addInteractiveTower').onclick = () => {
+                const height = parseFloat(document.getElementById('towerHeight').value);
+                const signalRadius = parseFloat(document.getElementById('signalRadius').value);
+
+                if (!isNaN(height) && !isNaN(signalRadius)) {
+                    // Создание модели вышки связи
+                    loadTowerModel(lat, lng, height);
+
+                    // Создание полусферы сигнала
+                    createSignalDome(lat, lng, height, signalRadius);
+
+                    alert(`Вышка добавлена: [${lat}, ${lng}, ${height}, Signal Radius: ${signalRadius}]`);
+                    window.towers.push({ lat: lat, lng: lng, height: height, signalRadius });
+                    document.getElementById('interactiveTowerContainer').style.display = 'none';
+                    interactiveTowerMode = false;
+                } else {
+                    alert("Пожалуйста, введите валидные данные.");
+                }
+            };
+        }
+    });
+
+    // Загрузка модели вышки связи
     function loadTowerModel(lat, lng, alt) {
         const towerModelUrl = 'http://localhost:9000/tower.glb'; // Укажите правильный путь к вашему файлу GLB
         const options = {
@@ -374,7 +450,7 @@
             return;
         }
         
-        tb.world.clear();
+        //tb.world.clear();
         for (let i = 0; i < points.length - 1; i++) {
             const start = points[i];
             const end = points[i + 1];
@@ -418,7 +494,7 @@
         tb.update();
         alert("3D путь построен!");
         document.getElementById('startFlight').style.display = 'inline-block';
-        placeTowers(20000, 300);
+        //placeTowers(20000, 300);
     }
 
     // Построение пути
