@@ -410,7 +410,7 @@
             }
 
             // Функция для расчета уровня сигнала по логарифмической шкале
-            function calculateSignalStrength(distance, signalRadius, minDb = -120, maxDb = -55) {
+            function calculateSignalStrength(distance, signalRadius, minDb = -120, maxDb = 0) {
                 const distanceFactor = distance / signalRadius;
                 const signalDb = maxDb - (20 * Math.log10(distanceFactor));  // Логарифмическая зависимость
                 return Math.max(minDb, Math.min(maxDb, signalDb));  // Ограничиваем значения от minDb до maxDb
@@ -421,29 +421,20 @@
                 return -signalStrength;  // Уровень шума обратно пропорционален уровню сигнала
             }
             // Функция для обновления секундомера и уровня сигнала
-            // Функция для обновления информации о сигнале
             function updateSignalInfo(lat, lng, altitude) {
-                let signalStrength = -Infinity;  // Начинаем с минимального значения сигнала
+                let signalStrength = -Infinity;
                 let noiseLevel = 0;
-
                 for (const tower of window.towers) {
-                    // Проверяем, находится ли объект в зоне сигнала вышки
-                    const isInside = isInsideSignalDome(lat, lng, altitude, tower);
+                    // Вычисляем горизонтальное расстояние
+                    const horizontalDistance = calculateDistance(lat, lng, tower.lat, tower.lng);
+                    // Вычисляем полное 3D расстояние с учетом высоты
+                    const verticalDistance = altitude - tower.height;
+                    const totalDistance = Math.sqrt(horizontalDistance * horizontalDistance + verticalDistance * verticalDistance);
+                    
+                    // Получаем уровень сигнала
+                    signalStrength = Math.max(signalStrength, calculateSignalStrength(totalDistance, tower.signalRadius));
 
-                    if (isInside) {
-                        // Если объект внутри зоны сигнала, рассчитываем уровень сигнала по логарифмической шкале
-                        const horizontalDistance = calculateDistance(lat, lng, tower.lat, tower.lng);
-                        const verticalDistance = altitude - tower.height;
-                        const totalDistance = Math.sqrt(horizontalDistance * horizontalDistance + verticalDistance * verticalDistance);
-
-                        // Получаем уровень сигнала
-                        signalStrength = Math.max(signalStrength, calculateSignalStrength(totalDistance, tower.signalRadius));
-                    } else {
-                        // Если объект вне зоны сигнала, уровень сигнала равен minDb
-                        signalStrength = Math.max(signalStrength, -120);  // minDb
-                    }
-
-                    // Рассчитываем уровень шума
+                    // Получаем уровень шума
                     noiseLevel = calculateNoiseLevel(signalStrength);
                 }
 
@@ -451,7 +442,6 @@
                 document.getElementById('signalStrength').textContent = `Уровень сигнала: ${signalStrength.toFixed(2)} дБ`;
                 document.getElementById('noiseLevel').textContent = `Уровень шума: ${noiseLevel.toFixed(2)} дБ`;
             }
-
 
     
             let isInsideSignal = false;  // Флаг, показывающий, находится ли самолет внутри сферы
