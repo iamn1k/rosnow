@@ -64,6 +64,14 @@
     
     <h3>Время действия сигнала (sec)</h3>
     <div id="timer">0</div> <!-- Секундомер -->
+    <div id="flightTime">Общее время полета: 0.00</div> <!-- Общее время полета -->
+    <div id="signalPercentage">Процент времени в сигнале: 0%</div> <!-- Процент времени в сигнале -->
+
+    <div id="signalInfo">
+        <div id="signalStrength">Уровень сигнала: -120 дБ</div>
+        <div id="noiseLevel">Уровень шума: 0 дБ</div>
+    </div>
+
 </div>
 <div id="map"></div>
 <script type="module">
@@ -400,6 +408,51 @@
                     alt: p1.alt + (p2.alt - p1.alt) * progress,
                 };
             }
+
+            // Функция для расчета уровня сигнала по логарифмической шкале
+            function calculateSignalStrength(distance, signalRadius, minDb = -120, maxDb = -55) {
+                const distanceFactor = distance / signalRadius;
+                const signalDb = maxDb - (20 * Math.log10(distanceFactor));  // Логарифмическая зависимость
+                return Math.max(minDb, Math.min(maxDb, signalDb));  // Ограничиваем значения от minDb до maxDb
+            }
+
+            // Функция для расчета уровня шума
+            function calculateNoiseLevel(signalStrength) {
+                return -signalStrength;  // Уровень шума обратно пропорционален уровню сигнала
+            }
+            // Функция для обновления секундомера и уровня сигнала
+            // Функция для обновления информации о сигнале
+            function updateSignalInfo(lat, lng, altitude) {
+                let signalStrength = -Infinity;  // Начинаем с минимального значения сигнала
+                let noiseLevel = 0;
+
+                for (const tower of window.towers) {
+                    // Проверяем, находится ли объект в зоне сигнала вышки
+                    const isInside = isInsideSignalDome(lat, lng, altitude, tower);
+
+                    if (isInside) {
+                        // Если объект внутри зоны сигнала, рассчитываем уровень сигнала по логарифмической шкале
+                        const horizontalDistance = calculateDistance(lat, lng, tower.lat, tower.lng);
+                        const verticalDistance = altitude - tower.height;
+                        const totalDistance = Math.sqrt(horizontalDistance * horizontalDistance + verticalDistance * verticalDistance);
+
+                        // Получаем уровень сигнала
+                        signalStrength = Math.max(signalStrength, calculateSignalStrength(totalDistance, tower.signalRadius));
+                    } else {
+                        // Если объект вне зоны сигнала, уровень сигнала равен minDb
+                        signalStrength = Math.max(signalStrength, -120);  // minDb
+                    }
+
+                    // Рассчитываем уровень шума
+                    noiseLevel = calculateNoiseLevel(signalStrength);
+                }
+
+                // Отображаем значения на странице
+                document.getElementById('signalStrength').textContent = `Уровень сигнала: ${signalStrength.toFixed(2)} дБ`;
+                document.getElementById('noiseLevel').textContent = `Уровень шума: ${noiseLevel.toFixed(2)} дБ`;
+            }
+
+
     
             let isInsideSignal = false;  // Флаг, показывающий, находится ли самолет внутри сферы
             let timeInsideSignal = 0;  // Время внутри сигнала в секундах
@@ -454,7 +507,7 @@
                 z: -0.001  // Камера будет на хвосте самолета (отрицательное значение по оси Z)
             };
 
-            // Анимация полета
+            // Обновленная анимация полета
             function animate() {
                 const currentTime = performance.now();
                 const elapsedTime = currentTime - startTime;
@@ -518,6 +571,16 @@
 
                 window.tb.update();
 
+                // Обновляем общее время полета
+                const totalFlightTime = (elapsedTime / 1000).toFixed(2);  // Время в секундах
+                document.getElementById('flightTime').textContent = `Общее время полета: ${totalFlightTime}s`;
+
+                // Обновляем процент времени в сигнале
+                const signalTimePercentage = (timeInsideSignal / totalFlightTime * 100).toFixed(2);
+                document.getElementById('signalPercentage').textContent = `Процент времени в сигнале: ${signalTimePercentage}%`;
+                // В функции animate, добавляем вызов обновления сигнала
+                updateSignalInfo(pos.lat, pos.lng, pos.alt);
+
                 if (progress < 1) {
                     requestAnimationFrame(animate);
                 } else {
@@ -525,6 +588,7 @@
                     clearInterval(signalTimer);  // Останавливаем таймер по завершению полета
                 }
             }
+
 
     
             // Запуск анимации
