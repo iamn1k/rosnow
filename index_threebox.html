@@ -68,11 +68,22 @@
             padding: 10px;
             z-index: 3;
         }
+        #toggleControls {
+            position: absolute;
+            top: 0px;
+            left: 10px;
+            background-color: #ffffff;
+            border: 1px solid #ccc;
+            padding: 10px;
+            cursor: pointer;
+            z-index: 10;
+        }
     </style>
 </head>
 <body>
 <button id="toggle2D" style="display: block; margin-top: 10px;">2D</button>
 <button id="toggleCameraFollow" style="display: block; margin-top: 10px;">Следовать за самолетом</button>
+<button id="toggleControls" style="display: block; margin-top: 10px;">Скрыть меню</button>
 <div id="controls">
     <h3>Введите координаты</h3>
     <input type="text" id="lat" placeholder="Широта">
@@ -174,6 +185,20 @@
         showCompass: true
     }));
     
+    document.getElementById('toggleControls').addEventListener('click', function() {
+        const controls = document.getElementById('controls');
+        const button = document.getElementById('toggleControls');
+        
+        // Переключаем видимость меню
+        if (controls.style.display === 'none') {
+            controls.style.display = 'block';
+            button.innerText = 'Скрыть меню';  // Меняем текст кнопки на "Скрыть меню"
+        } else {
+            controls.style.display = 'none';
+            button.innerText = 'Показать меню';  // Меняем текст кнопки на "Показать меню"
+        }
+    });
+
     document.getElementById('toggle2D').addEventListener('click', () => {
         const currentPitch = map.getPitch();
     
