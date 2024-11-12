@@ -127,6 +127,12 @@
         <button id="addInteractiveTower">Добавить вышку</button>
         <button id="cancelInteractiveTower">Отменить</button>
     </div>
+    <div id="editPointContainer" style="display: none; position: absolute; background: white; border: 1px solid #ccc; padding: 10px; z-index: 4;">
+        <label for="editPointAlt">Изменить высоту:</label>
+        <input type="text" id="editPointAlt" placeholder="Высота в метрах">
+        <button id="savePointAlt">Сохранить</button>
+        <button id="cancelEditPoint">Отменить</button>
+    </div>
 </div>
 <div id="map"></div>
 
@@ -230,7 +236,66 @@
     let currentPointIndex = 0;  // Индекс текущей точки маршрута
     let interactiveMode = false; // Флаг для интерактивного режима
 
-    // Переключение на интерактивный режим добавления точки
+    let activePoint = null;  // Активная точка для редактирования
+    let activeMarker = null; // Маркер, который редактируется
+
+
+
+    // Функция для добавления маркера и точки
+    function addMarker(lat, lng, alt) {
+        const marker = new maplibregl.Marker({ draggable: true })
+            .setLngLat([lng, lat])
+            .setPopup(new maplibregl.Popup().setText(`Точка маршрута: [${lat}, ${lng}, ${alt}]`))
+            .addTo(map);
+
+        // Добавляем обработчик для начала редактирования маркера
+        marker.getElement().addEventListener('click', () => {
+            editPoint(lat, lng, alt, marker);
+        });
+
+        // Добавляем обработчик для перемещения маркера
+        marker.on('drag', (e) => {
+            const newLngLat = e.target.getLngLat();
+            // Обновляем координаты точки в массиве
+            if (activePoint) {
+                activePoint.lat = newLngLat.lat;
+                activePoint.lng = newLngLat.lng;
+            }
+        });
+
+        // Сохраняем точку в массив
+        points.push({ lat, lng, alt, marker });
+    }
+
+    // Функция для редактирования высоты точки
+    function editPoint(lat, lng, alt, marker) {
+        activePoint = points.find(point => point.lat === lat && point.lng === lng);
+        activeMarker = marker;
+        
+        // Показываем форму для редактирования высоты
+        document.getElementById('editPointAlt').value = alt;
+        document.getElementById('editPointContainer').style.display = 'block';
+        
+        // Сохраняем изменения в высоте
+        document.getElementById('savePointAlt').onclick = () => {
+            const newAlt = parseFloat(document.getElementById('editPointAlt').value);
+            if (!isNaN(newAlt)) {
+                activePoint.alt = newAlt;
+                activeMarker.getPopup().setText(`Точка маршрута: [${activePoint.lat}, ${activePoint.lng}, ${newAlt}]`);
+                alert(`Высота точки обновлена: ${newAlt} метров`);
+                document.getElementById('editPointContainer').style.display = 'none';
+            } else {
+                alert('Пожалуйста, введите валидную высоту.');
+            }
+        };
+
+        // Отмена редактирования
+        document.getElementById('cancelEditPoint').onclick = () => {
+            document.getElementById('editPointContainer').style.display = 'none';
+        };
+    }
+
+    // Добавляем точку интерактивно
     document.getElementById('addInteractivePointBtn').addEventListener('click', () => {
         interactiveMode = !interactiveMode;
         if (interactiveMode) {
@@ -239,12 +304,6 @@
         } else {
             document.getElementById('interactivePointContainer').style.display = 'none';
         }
-    });
-
-    // Отменить добавление точки
-    document.getElementById('cancelInteractivePoint').addEventListener('click', () => {
-        interactiveMode = false;
-        document.getElementById('interactivePointContainer').style.display = 'none';
     });
 
     // Добавление точки при клике на карту
@@ -261,22 +320,16 @@
             document.getElementById('addInteractivePoint').onclick = () => {
                 const alt = parseFloat(document.getElementById('pointAlt').value);
                 if (!isNaN(alt)) {
-                    points.push({ lat, lng, alt });
+                    addMarker(lat, lng, alt);
                     alert(`Точка добавлена: [${lat}, ${lng}, ${alt}]`);
-
-                    const marker = new maplibregl.Marker()
-                        .setLngLat([lng, lat])
-                        .setPopup(new maplibregl.Popup().setText('Точка маршрута'))
-                        .addTo(map);
+                    document.getElementById('interactivePointContainer').style.display = 'none';
+                    interactiveMode = false;
                 } else {
                     alert("Пожалуйста, введите валидную высоту.");
                 }
-                document.getElementById('interactivePointContainer').style.display = 'none';
-                interactiveMode = false;
             };
         }
     });
-
     let interactiveTowerMode = false; // Флаг для интерактивного добавления вышек
 
     // Добавление интерактивной вышки связи
