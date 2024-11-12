@@ -615,64 +615,112 @@
         }
     });
 
-    // Функция для построения 3D линии
     function draw3dPath() {
-        if (points.length < 2) {
-            alert("Добавьте хотя бы две точки для построения пути.");
-            return;
-        }
-        
-        //tb.world.clear();
-        for (let i = 0; i < points.length - 1; i++) {
-            const start = points[i];
-            const end = points[i + 1];
+    if (points.length < 2) {
+        alert("Добавьте хотя бы две точки для построения пути.");
+        return;
+    }
 
-            const line = window.tb.line({
-                geometry: [
-                    [start.lng, start.lat, start.alt],
-                    [end.lng, end.lat, end.alt]
-                ],
-                color: config.line_color,
-                width: 4,
-                opacity: 1
+    const THREE = window.THREE;
+    const material = new THREE.LineBasicMaterial({ color: config.line_color, linewidth: 3 , opacity : 0.99 , transparent: true});
+
+    // Массив для хранения координат вершин линии в Mercator
+    const positions = [];
+
+    points.forEach((point) => {
+        const { lat, lng, alt } = point;
+
+        // Преобразуем географические координаты в Mercator
+        const modelOrigin = new maplibregl.LngLat(lng, lat);
+        const modelAltitude = alt || 0; // Используем высоту из данных или 0
+        const modelAsMercatorCoordinate = maplibregl.MercatorCoordinate.fromLngLat(modelOrigin, modelAltitude);
+
+        // Добавляем координаты в массив позиций для линии
+        positions.push(modelAsMercatorCoordinate.x, modelAsMercatorCoordinate.y, modelAsMercatorCoordinate.z);
+    });
+
+    // Создаем геометрию линии
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+
+    // Создаем объект линии
+    const line = new THREE.Line(geometry, material);
+
+    // Генерация уникального ID для слоя
+    const layerId = 'path-layer-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+
+    // Конфигурация пользовательского слоя для 3D линии
+    const customLayer = {
+        id: layerId,  // Используем уникальный ID для слоя
+        type: 'custom',
+        renderingMode: '3d',
+        onAdd(map, gl) {
+            this.camera = new THREE.Camera();
+            this.scene = new THREE.Scene();
+
+            // Создаем два источника света для освещения линии
+            const directionalLight = new THREE.DirectionalLight(0xffffff);
+            directionalLight.position.set(0, -70, 100).normalize();
+            this.scene.add(directionalLight);
+
+            const directionalLight2 = new THREE.DirectionalLight(0xffffff);
+            directionalLight2.position.set(0, 70, 100).normalize();
+            this.scene.add(directionalLight2);
+
+            // Создаем полусферу (сделаем её полностью прозрачной или полупрозрачной)
+            const domeMaterial = new THREE.MeshBasicMaterial({
+                color: config.sphere_color,
+                transparent: true,
+                opacity: 0.5,  // Полупрозрачная сфера, чтобы линия была видна внутри
+                side: THREE.DoubleSide,
+                depthWrite: false  // Отключаем запись в буфер глубины для сферы
             });
 
-            window.tb.add(line);
-            // Draw the vertical line at the end of the segment
-            const line_vertical = window.tb.line({
-                geometry: [
-                    [start.lng, start.lat, start.alt],
-                    [start.lng, start.lat, 0]
-                ],
-                color: config.line_color,
-                width: 1,
-                opacity: 1
-            })
-            window.tb.add(line_vertical);
+            const domeGeometry = new THREE.SphereGeometry(100, 32, 32, 0, Math.PI, 0, Math.PI);
+            const dome = new THREE.Mesh(domeGeometry, domeMaterial);
+            dome.position.set(0, 0, 0);  // Позиционируем сферу
+
+            // Добавляем полусферу в сцену
+            this.scene.add(dome);
+
+            // Добавляем линию в сцену
+            this.scene.add(line);
+
+            // Используем canvas карты MapLibre для рендеринга Three.js
+            this.renderer = new THREE.WebGLRenderer({
+                canvas: map.getCanvas(),
+                context: gl,
+                antialias: true
+            });
+
+            // Отключаем сортировку прозрачных объектов, чтобы линия рисовалась поверх сферы
+            this.renderer.sortObjects = false;
+            this.renderer.autoClear = false;
+        },
+        render(gl, matrix) {
+            const m = new THREE.Matrix4().fromArray(matrix);
+            this.camera.projectionMatrix = m;
+
+            // Рендерим сцену
+            this.renderer.resetState();
+            this.renderer.render(this.scene, this.camera);
         }
+    };
 
-        const line_vertical = window.tb.line({
-            geometry: [
-                [points[points.length - 1].lng, points[points.length - 1].lat, points[points.length - 1].alt],
-                [points[points.length - 1].lng, points[points.length - 1].lat, 0]
-            ],
-            color: config.line_color,
-            width: 1,
-            opacity: 1
-        })
-        window.tb.add(line_vertical);
+    // Добавляем слой на карту
+    map.addLayer(customLayer);
+
+    alert("3D путь построен!");
+    document.getElementById('startFlight').style.display = 'inline-block';
+}
+
+// Обработчик клика для рисования пути
+document.getElementById('drawPath').addEventListener('click', draw3dPath);
 
 
-        window.tb.update();
-        alert("3D путь построен!");
-        document.getElementById('startFlight').style.display = 'inline-block';
-        //placeTowers(20000, 300);
-    }
-    
-    
 
-    // Построение пути
-    document.getElementById('drawPath').addEventListener('click', draw3dPath);
+
+
 
     document.getElementById('startFlight').addEventListener('click', () => {
         if (points.length < 2) {
