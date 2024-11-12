@@ -107,9 +107,10 @@
     <button id="addTowerBtn">Добавить вышку</button>
     
     <div id="interactiveTowerContainer">
-        <h4>Введите высоту и радиус сигнала</h4>
-        <label for="towerHeight">Высота:</label>
+        <h4>Введите Радиус сигнала</h4>
+        <!--<label for="towerHeight">Высота:</label>
         <input type="text" id="towerHeight" placeholder="Высота в метрах"><br><br>
+        -->
         <label for="signalRadius">Радиус сигнала:</label>
         <input type="text" id="signalRadius" placeholder="Радиус в метрах"><br><br>
         <button id="addInteractiveTower">Добавить вышку</button>
@@ -278,13 +279,13 @@
 
             // Отображаем форму для ввода высоты и радиуса
             document.getElementById('interactiveTowerContainer').style.display = 'block';
-            document.getElementById('towerHeight').focus();
+            document.getElementById('signalRadius').focus();
 
             document.getElementById('addInteractiveTower').onclick = () => {
-                const height = parseFloat(document.getElementById('towerHeight').value);
+                //const height = parseFloat(document.getElementById('towerHeight').value);
                 const signalRadius = parseFloat(document.getElementById('signalRadius').value);
 
-                if (!isNaN(height) && !isNaN(signalRadius)) {
+                if (!isNaN(signalRadius)) {
                     const feature = {
                         type: "Point",
                         coordinates: [lng, lat],
@@ -304,10 +305,11 @@
 
 
                     // Создание полусферы сигнала
-                    createSignalDome(lat, lng, height, signalRadius);
-
-                    alert(`Вышка добавлена: [${lat}, ${lng}, ${height}, Signal Radius: ${signalRadius}]`);
-                    window.towers.push({ lat: lat, lng: lng, height: height, signalRadius });
+                    createSignalDome(lat, lng, towerHeight, signalRadius);
+                    map.addLayer(window.customLayer);
+                    //console.log(`Вышка добавлена: [${lat}, ${lng}, ${height}, Signal Radius: ${signalRadius}]`);
+                    alert(`Вышка добавлена: [${lat}, ${lng}, ${towerHeight}, Signal Radius: ${signalRadius}]`);
+                    window.towers.push({ lat: lat, lng: lng, height: towerHeight, signalRadius });
                     document.getElementById('interactiveTowerContainer').style.display = 'none';
                     interactiveTowerMode = false;
                 } else {
@@ -338,14 +340,15 @@
     }
     
     
+    // Создание полусферы сигнала
     function createSignalDome(lat, lng, height, radius) {
         const THREE = window.THREE;
-    
+
         // Получаем координаты Mercator для положения модели
         const modelOrigin = new maplibregl.LngLat(lng, lat);
         const modelAltitude = height;
         const modelAsMercatorCoordinate = maplibregl.MercatorCoordinate.fromLngLat(modelOrigin, modelAltitude);
-    
+
         // Параметры трансформации модели для позиционирования, вращения и масштабирования
         const modelTransform = {
             translateX: modelAsMercatorCoordinate.x,
@@ -353,7 +356,7 @@
             translateZ: modelAsMercatorCoordinate.z,
             scale: modelAsMercatorCoordinate.meterInMercatorCoordinateUnits()
         };
-    
+
         // Функция для создания полусферы
         function createDome(radius) {
             const geometry = new THREE.SphereGeometry(radius, 32, 32, 0, Math.PI, 0, Math.PI); // Полусфера
@@ -366,10 +369,10 @@
             const dome = new THREE.Mesh(geometry, material);
             return dome;
         }
-    
+
         // Генерация уникального ID для каждого слоя
         const layerId = 'signal-dome-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
-    
+
         // Конфигурация пользовательского слоя для 3D модели
         const customLayer = {
             id: layerId,  // Используем уникальный ID для слоя
@@ -378,25 +381,25 @@
             onAdd(map, gl) {
                 this.camera = new THREE.Camera();
                 this.scene = new THREE.Scene();
-    
+
                 // Создаем два источника света для освещения полусферы
                 const directionalLight = new THREE.DirectionalLight(0xffffff);
                 directionalLight.position.set(0, -70, 100).normalize();
                 this.scene.add(directionalLight);
-    
+
                 const directionalLight2 = new THREE.DirectionalLight(0xffffff);
                 directionalLight2.position.set(0, 70, 100).normalize();
                 this.scene.add(directionalLight2);
-    
+
                 // Создаем полусферу
                 const dome = createDome(radius);
-    
+
                 // Устанавливаем позицию полусферы с учетом координат Mercator и высоты
-                dome.position.set(modelTransform.translateX, modelTransform.translateY, modelTransform.translateZ + radius);
-    
+                dome.position.set(modelTransform.translateX, modelTransform.translateY, modelTransform.translateZ);
+
                 // Добавляем полусферу в сцену
                 this.scene.add(dome);
-    
+
                 // Используем canvas карты MapLibre для рендеринга Three.js
                 this.renderer = new THREE.WebGLRenderer({
                     canvas: map.getCanvas(),
@@ -410,19 +413,22 @@
                 const l = new THREE.Matrix4()
                     .makeTranslation(modelTransform.translateX, modelTransform.translateY, modelTransform.translateZ)
                     .scale(new THREE.Vector3(modelTransform.scale, -modelTransform.scale, modelTransform.scale));
-    
+
                 this.camera.projectionMatrix = m.multiply(l);
                 this.renderer.resetState();
                 this.renderer.render(this.scene, this.camera);
-                //this.map.triggerRepaint();
             }
         };
-    
-        // Добавляем слой после полной загрузки стиля карты
+        // Добавляем слой немедленно, без ожидания style.load
+        //map.addLayer(customLayer);
+        window.customLayer = customLayer;
         map.once('style.load', () => {
             map.addLayer(customLayer);
         });
+        
+
     }
+
     
     
     
@@ -492,7 +498,7 @@
         console.log("All Towers:", window.towers);  // Печатаем массив башен для проверки
     }
     
-    placeTowers(20000, 300);
+    placeTowers(20000, 3000);
     
     
 
