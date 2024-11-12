@@ -9,6 +9,7 @@
     <script src='https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js'></script>
     <!--<script src="https://unpkg.com/three@0.152.0/build/three.min.js"></script>-->
     <script src="https://unpkg.com/threebox-plugin@2.2.1/dist/threebox.min.js" type="text/javascript"></script>
+    <script src="config.js" type="text/javascript"></script>
     <link href="https://unpkg.com/threebox-plugin@2.2.1/dist/threebox.css" rel="stylesheet" />
     <style>
         body { margin: 0; padding: 0; }
@@ -137,15 +138,17 @@
 <div id="map"></div>
 
 <script type="module">
+    
+
     const krasnoyarskBounds = [
-        [90.0, 53.0], // Southwest coordinates [lng, lat]
-        [96.0, 60.0]  // Northeast coordinates [lng, lat]
+        config.south_coordinates, // Southwest coordinates [lng, lat]
+        config.north_coordinates  // Northeast coordinates [lng, lat]
     ];
 
     const map = new maplibregl.Map({
         container: 'map',
         zoom: 6,
-        center: [92.857, 56.015], // Center coordinates for Krasnoyarsk Krai
+        center: config.map_center, // Center coordinates for Krasnoyarsk Krai
         pitch: 70,
         bearing: 0,
         antialias: true,
@@ -154,7 +157,7 @@
             sources: {
                 osm: {
                     type: 'raster',
-                    tiles: ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png'], // https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}
+                    tiles: [config.tiles], // https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}
                     tileSize: 256,
                     attribution: '&copy; OpenStreetMap Contributors',
                     maxzoom: 19
@@ -176,7 +179,7 @@
             ],
             terrain: {
                 source: 'terrainSource',
-                exaggeration: 1.5
+                exaggeration: config.exaggeration
             },
             sky: {}
         },
@@ -399,11 +402,11 @@
 
     // Загрузка модели вышки связи
     function loadTowerModel(lat, lng, alt) {
-        const towerModelUrl = 'http://localhost:9000/tower.glb'; // Укажите правильный путь к вашему файлу GLB
+        const towerModelUrl = config.tower_path; // Укажите правильный путь к вашему файлу GLB
         const options = {
             obj: towerModelUrl,
             type: 'gltf',
-            scale: 1000,
+            scale: config.tower_scale,
             units: 'meters',
             rotation: { x: 90, y: 0, z: 0 },
             anchor: 'center'
@@ -439,9 +442,9 @@
         function createDome(radius) {
             const geometry = new THREE.SphereGeometry(radius, 32, 32, 0, Math.PI, 0, Math.PI); // Полусфера
             const material = new THREE.MeshBasicMaterial({
-                color: 'blue',
+                color: config.sphere_color,
                 transparent: true,
-                opacity: 0.3,
+                opacity: config.sphere_opacity,
                 side: THREE.DoubleSide
             });
             const dome = new THREE.Mesh(geometry, material);
@@ -517,8 +520,8 @@
     
     
     async function placeTowers(distance, signalRadius) {
-        const centerLat = 56.015;
-        const centerLng = 92.857;
+        const centerLat = config.map_center[1];
+        const centerLng = config.map_center[0];
         const towers = [];  // Массив для хранения данных о башнях
         window.towers = towers;
         const feature = {
@@ -541,7 +544,7 @@
     
         window.towers.push({ lat: centerLat, lng: centerLng, height: centerHeight, signalRadius });
     
-        const bearingOffsets = [0, 72, 144, 216, 288];
+        const bearingOffsets = config.placetowers_angles;
     
         const heightsPromises = bearingOffsets.map(async (angle) => {
             const angleRad = angle * Math.PI / 180;
@@ -576,7 +579,7 @@
         console.log("All Towers:", window.towers);  // Печатаем массив башен для проверки
     }
     
-    placeTowers(20000, 3000);
+    placeTowers(config.placetowers_distance, config.tower_radius);
     
     
 
@@ -629,7 +632,7 @@
                     [start.lng, start.lat, start.alt],
                     [end.lng, end.lat, end.alt]
                 ],
-                color: '#dd0000',
+                color: config.line_color,
                 width: 4,
                 opacity: 1
             });
@@ -641,7 +644,7 @@
                     [start.lng, start.lat, start.alt],
                     [start.lng, start.lat, 0]
                 ],
-                color: '#dd0000',
+                color: config.line_color,
                 width: 1,
                 opacity: 1
             })
@@ -653,7 +656,7 @@
                 [points[points.length - 1].lng, points[points.length - 1].lat, points[points.length - 1].alt],
                 [points[points.length - 1].lng, points[points.length - 1].lat, 0]
             ],
-            color: '#dd0000',
+            color: config.line_color,
             width: 1,
             opacity: 1
         })
@@ -679,11 +682,11 @@
     
         // Загрузка модели самолета
         const options = {
-            obj: 'http://localhost:9000/scene.glb', // Укажите путь к модели GLB
+            obj: config.plane_path, // Укажите путь к модели GLB
             type: 'gltf',
-            scale: 0.1,
+            scale: config.plane_scale,
             units: 'meters',
-            rotation: { x: 0, y: 0, z: 0 }, // Поворот модели по умолчанию
+            rotation: config.plane_rotation, // Поворот модели по умолчанию
             anchor: 'center'
         };
     
@@ -703,7 +706,7 @@
             }
     
             // Переводим скорость из км/ч в м/с (1 км/ч = 1/3.6 м/с)
-            const flightSpeed = 1000 / 3.6;  // скорость в м/с
+            const flightSpeed = config.plane_flight_speed / 3.6;  // скорость в м/с
     
             // Общая длительность полета в миллисекундах
             const duration = totalDistance / flightSpeed * 1000;
@@ -812,11 +815,7 @@
             });
 
             // Параметры смещения камеры относительно самолета
-            const cameraOffset = {
-                x: 0.01,   // Камера будет на том же уровне по оси X
-                y: 0.001,   // Камера будет на том же уровне по оси Y
-                z: -0.001  // Камера будет на хвосте самолета (отрицательное значение по оси Z)
-            };
+            const cameraOffset = config.plane_camera_offset;
 
             // Обновленная анимация полета
             function animate() {
@@ -932,7 +931,6 @@
         const dy = p2.lat - p1.lat;
         return Math.atan2(dy, dx); // Возвращаем угол в радианах
     }
-    
 
 </script>
 </body>
