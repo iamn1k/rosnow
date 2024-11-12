@@ -7,7 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel='stylesheet' href='https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css' />
     <script src='https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js'></script>
-    <script src="https://unpkg.com/three@0.152.0/build/three.min.js"></script>
+    <!--<script src="https://unpkg.com/three@0.152.0/build/three.min.js"></script>-->
     <script src="https://unpkg.com/threebox-plugin@2.2.1/dist/threebox.min.js" type="text/javascript"></script>
     <link href="https://unpkg.com/threebox-plugin@2.2.1/dist/threebox.css" rel="stylesheet" />
     <style>
@@ -338,27 +338,97 @@
     }
     
     
-
-    // Изменение проверки на пересечение с полусферой (исправленный радиус)
     function createSignalDome(lat, lng, height, radius) {
-        // Создаем полусферу с помощью Threebox
-        const dome = window.tb.sphere({
-            color: 'blue',  // Зеленый цвет
-            material: 'MeshBasicMaterial', // Простой материал
-            transparent: true,  // Сделать полусферу прозрачной
-            opacity: 0.3,  // Устанавливаем прозрачность
-            side: THREE.DoubleSide, // Покажем обе стороны
-            radius: radius,
-            units: 'meter',
-            phiLength: Math.PI,  // Ограничиваем угол phi до 180 градусов (полусфера)
-            anchor: 'center',  // Центрируем сферу по координатам
-            adjustment: { x: 0, y: 0, z: -0.5 }  // Сдвиг на 0, чтобы центр совпал с координатами
-        })
-        .setCoords([lng, lat, height + radius]);  // Устанавливаем координаты
-        window.tb.add(dome);
-        window.tb.update();
-        console.log("Signal dome created at height:", height, "with radius:", radius);
+        const THREE = window.THREE;
+    
+        // Получаем координаты Mercator для положения модели
+        const modelOrigin = new maplibregl.LngLat(lng, lat);
+        const modelAltitude = height;
+        const modelAsMercatorCoordinate = maplibregl.MercatorCoordinate.fromLngLat(modelOrigin, modelAltitude);
+    
+        // Параметры трансформации модели для позиционирования, вращения и масштабирования
+        const modelTransform = {
+            translateX: modelAsMercatorCoordinate.x,
+            translateY: modelAsMercatorCoordinate.y,
+            translateZ: modelAsMercatorCoordinate.z,
+            scale: modelAsMercatorCoordinate.meterInMercatorCoordinateUnits()
+        };
+    
+        // Функция для создания полусферы
+        function createDome(radius) {
+            const geometry = new THREE.SphereGeometry(radius, 32, 32, 0, Math.PI, 0, Math.PI); // Полусфера
+            const material = new THREE.MeshBasicMaterial({
+                color: 'blue',
+                transparent: true,
+                opacity: 0.3,
+                side: THREE.DoubleSide
+            });
+            const dome = new THREE.Mesh(geometry, material);
+            return dome;
+        }
+    
+        // Генерация уникального ID для каждого слоя
+        const layerId = 'signal-dome-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+    
+        // Конфигурация пользовательского слоя для 3D модели
+        const customLayer = {
+            id: layerId,  // Используем уникальный ID для слоя
+            type: 'custom',
+            renderingMode: '3d',
+            onAdd(map, gl) {
+                this.camera = new THREE.Camera();
+                this.scene = new THREE.Scene();
+    
+                // Создаем два источника света для освещения полусферы
+                const directionalLight = new THREE.DirectionalLight(0xffffff);
+                directionalLight.position.set(0, -70, 100).normalize();
+                this.scene.add(directionalLight);
+    
+                const directionalLight2 = new THREE.DirectionalLight(0xffffff);
+                directionalLight2.position.set(0, 70, 100).normalize();
+                this.scene.add(directionalLight2);
+    
+                // Создаем полусферу
+                const dome = createDome(radius);
+    
+                // Устанавливаем позицию полусферы с учетом координат Mercator и высоты
+                dome.position.set(modelTransform.translateX, modelTransform.translateY, modelTransform.translateZ + radius);
+    
+                // Добавляем полусферу в сцену
+                this.scene.add(dome);
+    
+                // Используем canvas карты MapLibre для рендеринга Three.js
+                this.renderer = new THREE.WebGLRenderer({
+                    canvas: map.getCanvas(),
+                    context: gl,
+                    antialias: true
+                });
+                this.renderer.autoClear = false;
+            },
+            render(gl, matrix) {
+                const m = new THREE.Matrix4().fromArray(matrix);
+                const l = new THREE.Matrix4()
+                    .makeTranslation(modelTransform.translateX, modelTransform.translateY, modelTransform.translateZ)
+                    .scale(new THREE.Vector3(modelTransform.scale, -modelTransform.scale, modelTransform.scale));
+    
+                this.camera.projectionMatrix = m.multiply(l);
+                this.renderer.resetState();
+                this.renderer.render(this.scene, this.camera);
+                //this.map.triggerRepaint();
+            }
+        };
+    
+        // Добавляем слой после полной загрузки стиля карты
+        map.once('style.load', () => {
+            map.addLayer(customLayer);
+        });
     }
+    
+    
+    
+    
+    
+    
     
     
     
@@ -470,7 +540,7 @@
             const start = points[i];
             const end = points[i + 1];
 
-            const line = tb.line({
+            const line = window.tb.line({
                 geometry: [
                     [start.lng, start.lat, start.alt],
                     [end.lng, end.lat, end.alt]
@@ -480,9 +550,9 @@
                 opacity: 1
             });
 
-            tb.add(line);
+            window.tb.add(line);
             // Draw the vertical line at the end of the segment
-            const line_vertical = tb.line({
+            const line_vertical = window.tb.line({
                 geometry: [
                     [start.lng, start.lat, start.alt],
                     [start.lng, start.lat, 0]
@@ -491,10 +561,10 @@
                 width: 1,
                 opacity: 1
             })
-            tb.add(line_vertical);
+            window.tb.add(line_vertical);
         }
 
-        const line_vertical = tb.line({
+        const line_vertical = window.tb.line({
             geometry: [
                 [points[points.length - 1].lng, points[points.length - 1].lat, points[points.length - 1].alt],
                 [points[points.length - 1].lng, points[points.length - 1].lat, 0]
@@ -503,14 +573,16 @@
             width: 1,
             opacity: 1
         })
-        tb.add(line_vertical);
+        window.tb.add(line_vertical);
 
 
-        tb.update();
+        window.tb.update();
         alert("3D путь построен!");
         document.getElementById('startFlight').style.display = 'inline-block';
         //placeTowers(20000, 300);
     }
+    
+    
 
     // Построение пути
     document.getElementById('drawPath').addEventListener('click', draw3dPath);
