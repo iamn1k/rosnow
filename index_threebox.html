@@ -647,12 +647,12 @@
             // Функция для расчета уровня сигнала по логарифмической шкале
             function calculateSignalStrength(distance, signalRadius, minDb = -120, maxDb = 0) {
                 // Проверка, если расстояние больше или равно пороговому значению
-                if (distance >= signalRadius * 10 * 2.17) {
+                if (distance >= signalRadius ) { // * 10 * 2.17
                     return minDb; // Если дистанция больше или равна максимальному радиусу, возвращаем минимальный уровень сигнала
                 }
 
                 // Масштабирование от minDb до maxDb
-                const maxDistance = signalRadius * 10 * 2.17;
+                const maxDistance = signalRadius ;//* 10 * 2.17;
                 const signalDb = maxDb - (maxDb - minDb) * (distance / maxDistance); // Линейная интерполяция
 
                 return Math.max(minDb, Math.min(maxDb, signalDb)); // Ограничиваем значения от minDb до maxDb
@@ -706,7 +706,7 @@
                     //console.log(`Horizontal Distance: ${horizontalDistance}, Vertical Distance: ${verticalDistance}, Total Distance: ${distance}`);
                     
                     // Проверяем, если расстояние меньше или равно радиусу сигнала
-                    if (distance <= tower.signalRadius * 10 * 2.17 ) {
+                    if (distance <= tower.signalRadius ) { //  * 10 * 2.17
                         //console.log("inside sphere!!!");
                         return true;  // Если самолет находится внутри хотя бы одной сферы
                     }
