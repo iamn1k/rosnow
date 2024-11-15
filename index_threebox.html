@@ -83,7 +83,7 @@
 </head>
 <body>
 <button id="toggle2D" style="display: block; margin-top: 10px;">2D</button>
-<button id="toggleCameraFollow" style="display: block; margin-top: 10px;">Следовать за самолетом</button>
+<!--<button id="toggleCameraFollow" style="display: block; margin-top: 10px;">Следовать за самолетом</button> -->
 <button id="toggleControls" style="display: block; margin-top: 10px;">Скрыть меню</button>
 <div id="controls">
     <h3>Введите координаты</h3>
@@ -622,7 +622,7 @@
     }
 
     const THREE = window.THREE;
-    const material = new THREE.LineBasicMaterial({ color: config.line_color, linewidth: 3 , opacity : 0.99 , transparent: true});
+    const material = new THREE.LineBasicMaterial({ color: config.line_color, linewidth: 3, transparent: false, depthWrite: false});
 
     // Массив для хранения координат вершин линии в Mercator
     const positions = [];
@@ -680,11 +680,12 @@
             const dome = new THREE.Mesh(domeGeometry, domeMaterial);
             dome.position.set(0, 0, 0);  // Позиционируем сферу
 
+            // Добавляем линию в сцену
+            this.scene.add(line);
             // Добавляем полусферу в сцену
             this.scene.add(dome);
 
-            // Добавляем линию в сцену
-            this.scene.add(line);
+            
 
             // Используем canvas карты MapLibre для рендеринга Three.js
             this.renderer = new THREE.WebGLRenderer({
@@ -706,7 +707,7 @@
             this.renderer.render(this.scene, this.camera);
         }
     };
-
+    
     // Добавляем слой на карту
     map.addLayer(customLayer);
 
@@ -856,11 +857,11 @@ document.getElementById('drawPath').addEventListener('click', draw3dPath);
             let followCamera = false;  // Переменная для отслеживания режима следования камеры
 
             // Обработчик кнопки переключения следования камеры
-            document.getElementById('toggleCameraFollow').addEventListener('click', () => {
-                followCamera = !followCamera;  // Переключаем режим
-                const buttonText = followCamera ? 'Не следовать за самолетом' : 'Следовать за самолетом';
-                document.getElementById('toggleCameraFollow').textContent = buttonText;
-            });
+//            document.getElementById('toggleCameraFollow').addEventListener('click', () => {
+//                followCamera = !followCamera;  // Переключаем режим
+//                const buttonText = followCamera ? 'Не следовать за самолетом' : 'Следовать за самолетом';
+//                document.getElementById('toggleCameraFollow').textContent = buttonText;
+//            });
 
             // Параметры смещения камеры относительно самолета
             const cameraOffset = config.plane_camera_offset;
