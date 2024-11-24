@@ -1015,7 +1015,7 @@ document.getElementById('startFlight').addEventListener('click', () => {
                     };
                 }
             
-                function animate() {
+                /*function animate() {
                     const currentTime = performance.now();
                     const elapsedTime = currentTime - startTime;
                     progress = Math.min(elapsedTime / duration, 1);
@@ -1040,11 +1040,93 @@ document.getElementById('startFlight').addEventListener('click', () => {
                     } else {
                         alert(`Полет ${currentPlane} завершен!`);
                     }
+                }*/
+                // Обновленная анимация полета
+            function animate() {
+                const currentTime = performance.now();
+                const elapsedTime = currentTime - startTime;
+                progress = Math.min(elapsedTime / duration, 1);
+
+                // Находим текущий сегмент пути
+                let segmentProgress = (elapsedTime / duration) * (points.length - 1);
+                currentSegment = Math.floor(segmentProgress);
+                let nextSegment = currentSegment + 1;
+
+                if (nextSegment >= points.length) {
+                    nextSegment = points.length - 1;
                 }
+
+                let p1 = points[currentSegment];
+                let p2 = points[nextSegment];
+
+                const segmentProgressNormalized = segmentProgress - currentSegment;
+                const pos = interpolate(p1, p2, segmentProgressNormalized);
+                model.setCoords([pos.lng, pos.lat, pos.alt]);
+
+                // Вычисляем угол поворота самолета
+                const angle = calculateAngle(p1, p2);  // Угол направления движения самолета
+
+                // Если включен режим следования камеры
+                if (followCamera) {
+                    // Камера будет следовать за самолетом, добавляем смещение по оси Z
+                    const cameraLng = pos.lng + cameraOffset.x;   // Смещение камеры по долготе
+                    const cameraLat = pos.lat + cameraOffset.y;   // Смещение камеры по широте
+                    const cameraAltitude = pos.alt + cameraOffset.z;  // Смещение камеры по высоте
+
+                    // Поворот камеры на 180 градусов относительно самолета (чтобы камера была сзади)
+                    const adjustedBearing = angle + 90 ;  // Поворот камеры в противоположную сторону
+
+                    map.jumpTo({
+                        center: [cameraLng, cameraLat],
+                        zoom: 15.0, //14.4
+                        pitch: 55,  // Угол наклона камеры
+                        bearing: adjustedBearing,  // Поворот камеры в направлении хвоста
+                    });
+                }
+                if (window.towers){
+                // Проверка на нахождение внутри сигнала
+                const insideSignal = isInsideSignalDome(pos.lat, pos.lng, pos.alt);
+
+                // Если самолет входит в радиус сигнала и еще не был внутри, запускаем таймер
+                if (insideSignal && !isInsideSignal) {
+                    isInsideSignal = true;
+                    signalTimer = setInterval(updateTimer, 100);  // Запускаем таймер (обновляем каждую десятую долю)
+                }
+
+                // Если самолет выходит из радиуса сигнала и был внутри, останавливаем таймер
+                if (!insideSignal && isInsideSignal) {
+                    isInsideSignal = false;
+                    clearInterval(signalTimer);  // Останавливаем таймер
+                }
+            }
+                // Поворот и другие действия с самолетом
+                const tilt = calculateTilt(p1, p2);
+                model.setRotation({ x: 90, y: angle * (180 / Math.PI), z: tilt * (180 / Math.PI) });
+
+                window.tb.update();
+
+                // Обновляем общее время полета
+                const totalFlightTime = (elapsedTime / 1000).toFixed(2);  // Время в секундах
+                document.getElementById('flightTime').textContent = `Общее время полета: ${totalFlightTime}s`;
+
+                // Обновляем процент времени в сигнале
+                const signalTimePercentage = (timeInsideSignal / totalFlightTime * 100).toFixed(2);
+                document.getElementById('signalPercentage').textContent = `Процент времени в сигнале: ${signalTimePercentage}%`;
+                // В функции animate, добавляем вызов обновления сигнала
+                if (window.towers){
+                updateSignalInfo(pos.lat, pos.lng, pos.alt);
+                }
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    alert("Полет завершен!");
+                    clearInterval(signalTimer);  // Останавливаем таймер по завершению полета
+                }
+            }
             
                 animate();
             }
-                        
+            /*   
             // Обновленная анимация полета
             function animate() {
                 const currentTime = performance.now();
@@ -1126,7 +1208,7 @@ document.getElementById('startFlight').addEventListener('click', () => {
                     alert("Полет завершен!");
                     clearInterval(signalTimer);  // Останавливаем таймер по завершению полета
                 }
-            }
+            }*/
 
 
     
