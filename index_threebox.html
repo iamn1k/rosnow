@@ -96,7 +96,7 @@
     <h3>Интерактивное добавление точек</h3>
     <button id="addInteractivePointBtn">Добавить точку интерактивно</button>
     <button id="clearPoints">Удалить точки и маршрут</button>
-
+    <button id="addPathSquere">Добавить зигзаг</button>
     <h3>Управление полетом</h3>
     <button id="drawPath">Построить путь</button>
     <button id="startFlight" style="display:none;">Начать полет</button>
@@ -526,14 +526,14 @@
     
     
     
-    
+    const towers = [];  // Массив для хранения данных о башнях
+    window.towers = towers;
     
     
     async function placeTowers(distance, signalRadius) {
         const centerLat = config.map_center[1];
         const centerLng = config.map_center[0];
-        const towers = [];  // Массив для хранения данных о башнях
-        window.towers = towers;
+
         const feature = {
             type: "Point",
             coordinates: [centerLng, centerLat],
@@ -589,7 +589,7 @@
         console.log("All Towers:", window.towers);  // Печатаем массив башен для проверки
     }
     
-    placeTowers(config.placetowers_distance, config.tower_radius);
+    //placeTowers(config.placetowers_distance, config.tower_radius);
     
     
 
@@ -720,11 +720,11 @@ document.getElementById('clearPoints').addEventListener('click', () => {
     markers.forEach(marker => {
         marker.remove();
     });
-
+    console.log("customPathLayers " + customPathLayers);
     // Remove custom 3D path layers from the map
     customPathLayers.forEach(layerId => {
         map.removeLayer(layerId);
-        map.removeSource(layerId);  // Clean up the associated source to free memory
+        //map.removeSource(layerId);  // Clean up the associated source to free memory
     });
 
     // Clear the markers array
@@ -736,6 +736,65 @@ document.getElementById('clearPoints').addEventListener('click', () => {
 
 
 
+// Получаем кнопку "Добавить зигзаг"
+const addPathSquereButton = document.getElementById('addPathSquere');
+
+// Добавляем обработчик события для кнопки
+addPathSquereButton.addEventListener('click', () => {
+    // Задать параметры маршрута
+    const params = {
+        topLeft: new maplibregl.LngLat(44.4952, 48.5442),  // Верхний левый угол (долгота, широта)
+        bottomRight: new maplibregl.LngLat(44.2168, 48.404),  // Нижний правый угол (долгота, широта)
+        numZigZagLines: 5  // Количество линий зигзага
+    };
+
+    buildZigzagRoute(params);
+});
+
+// Функция для построения маршрута с зигзагообразными линиями в форме буквы Z
+function buildZigzagRoute({ topLeft, bottomRight, numZigZagLines }) {
+    // Очищаем текущие точки
+    points.length = 0;
+
+    // Генерация точек для маршрута, которые будут располагаться зигзагообразно в форме Z
+    const lat1 = topLeft.lat;
+    const lng1 = topLeft.lng;
+    const lat2 = bottomRight.lat;
+    const lng2 = bottomRight.lng;
+
+    // Шаг для каждой линии зигзага по широте и долготе
+    const latStep = (lat1 - lat2) / numZigZagLines;
+    const lngStep = (lng2 - lng1) / numZigZagLines;
+
+    let latStart = lat1;
+    let lngStart = lng1;
+    let latEnd = lat1;
+    let lngEnd = lng1;
+
+    // Начинаем с верхнего левого угла
+    points.push({ lat: latStart, lng: lngStart });
+
+    // Проходим по зигзагообразному маршруту
+    for (let i = 0; i < numZigZagLines; i++) {
+        // 1. Двигаемся вправо (вверх или вниз по горизонтали)
+        lngStart = lng1 + (i + 1) * lngStep;
+        points.push({ lat: latStart, lng: lngStart });
+
+        // 2. Смещаемся вниз (вверх или вниз по вертикали)
+        latStart = lat1 - (i + 1) * latStep;
+        points.push({ lat: latStart, lng: lngStart });
+    }
+
+    // После того как точки созданы, вызываем вашу функцию для рисования 3D пути
+    draw3dPath();
+
+    // Добавляем маркеры для каждой точки
+    points.forEach(point => {
+        addMarker(point.lat, point.lng);
+    });
+
+    alert("Зигзагообразный маршрут в форме буквы 'Z' построен!");
+}
 
 
 
@@ -927,7 +986,7 @@ document.getElementById('clearPoints').addEventListener('click', () => {
                         bearing: adjustedBearing,  // Поворот камеры в направлении хвоста
                     });
                 }
-
+                if (window.towers){
                 // Проверка на нахождение внутри сигнала
                 const insideSignal = isInsideSignalDome(pos.lat, pos.lng, pos.alt);
 
@@ -942,7 +1001,7 @@ document.getElementById('clearPoints').addEventListener('click', () => {
                     isInsideSignal = false;
                     clearInterval(signalTimer);  // Останавливаем таймер
                 }
-
+            }
                 // Поворот и другие действия с самолетом
                 const tilt = calculateTilt(p1, p2);
                 planeModel.setRotation({ x: 90, y: angle * (180 / Math.PI), z: tilt * (180 / Math.PI) });
@@ -957,8 +1016,9 @@ document.getElementById('clearPoints').addEventListener('click', () => {
                 const signalTimePercentage = (timeInsideSignal / totalFlightTime * 100).toFixed(2);
                 document.getElementById('signalPercentage').textContent = `Процент времени в сигнале: ${signalTimePercentage}%`;
                 // В функции animate, добавляем вызов обновления сигнала
+                if (window.towers){
                 updateSignalInfo(pos.lat, pos.lng, pos.alt);
-
+                }
                 if (progress < 1) {
                     requestAnimationFrame(animate);
                 } else {
