@@ -743,16 +743,17 @@ const addPathSquereButton = document.getElementById('addPathSquere');
 addPathSquereButton.addEventListener('click', () => {
     // Задать параметры маршрута
     const params = {
-        topLeft: new maplibregl.LngLat(44.4952, 48.5442),  // Верхний левый угол (долгота, широта)
-        bottomRight: new maplibregl.LngLat(44.2168, 48.404),  // Нижний правый угол (долгота, широта)
-        numZigZagLines: 5  // Количество линий зигзага
+        topLeft: new maplibregl.LngLat(44.3445968627929, 48.2299330664082),  // Верхний левый угол (долгота, широта)
+        bottomRight: new maplibregl.LngLat(44.50939178466797, 48.07142649742457),  // Нижний правый угол (долгота, широта)
+        numZigZagLines: 5,  // Количество линий зигзага
+        heights: 100
     };
 
     buildZigzagRoute(params);
 });
 
 // Функция для построения маршрута с зигзагообразными линиями в форме буквы Z
-function buildZigzagRoute({ topLeft, bottomRight, numZigZagLines }) {
+function buildZigzagRoute({ topLeft, bottomRight, numZigZagLines ,heights}) {
     // Очищаем текущие точки
     points.length = 0;
 
@@ -762,27 +763,35 @@ function buildZigzagRoute({ topLeft, bottomRight, numZigZagLines }) {
     const lat2 = bottomRight.lat;
     const lng2 = bottomRight.lng;
 
-    // Шаг для каждой линии зигзага по широте и долготе
-    const latStep = (lat1 - lat2) / numZigZagLines;
-    const lngStep = (lng2 - lng1) / numZigZagLines;
+    // Шаг для каждой линии по широте и долготе
+    const latStep = (lat1 - lat2) / numZigZagLines;  // Шаг по вертикали
+    const lngStep = (lng2 - lng1) ;  // Шаг по горизонтали
 
     let latStart = lat1;
     let lngStart = lng1;
-    let latEnd = lat1;
-    let lngEnd = lng1;
 
     // Начинаем с верхнего левого угла
-    points.push({ lat: latStart, lng: lngStart });
+    points.push({ lat: latStart, lng: lngStart , alt: heights});
 
     // Проходим по зигзагообразному маршруту
-    for (let i = 0; i < numZigZagLines; i++) {
-        // 1. Двигаемся вправо (вверх или вниз по горизонтали)
-        lngStart = lng1 + (i + 1) * lngStep;
-        points.push({ lat: latStart, lng: lngStart });
+    for (let i = 0; i < Math.ceil(numZigZagLines / 2); i++) {
+        // 1. Двигаемся вправо (по горизонтали)
+        lngStart = lngStart + lngStep;
+        points.push({ lat: latStart, lng: lngStart, alt: heights });
 
-        // 2. Смещаемся вниз (вверх или вниз по вертикали)
-        latStart = lat1 - (i + 1) * latStep;
-        points.push({ lat: latStart, lng: lngStart });
+        // 2. Смещаемся по диагонали вниз влево
+        latStart = latStart - latStep;
+        lngStart = lngStart - lngStep;
+        points.push({ lat: latStart, lng: lngStart, alt: heights });
+
+        // 3. Двигаемся вправо (по горизонтали)
+        lngStart = lngStart + lngStep;
+        points.push({ lat: latStart, lng: lngStart, alt: heights });
+
+        // 4. Смещаемся по диагонали вниз влево
+        latStart = latStart - latStep;
+        lngStart = lngStart - lngStep;
+        points.push({ lat: latStart, lng: lngStart, alt: heights });
     }
 
     // После того как точки созданы, вызываем вашу функцию для рисования 3D пути
@@ -795,6 +804,9 @@ function buildZigzagRoute({ topLeft, bottomRight, numZigZagLines }) {
 
     alert("Зигзагообразный маршрут в форме буквы 'Z' построен!");
 }
+
+
+
 
 
 
