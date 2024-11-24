@@ -94,6 +94,7 @@
 
     <h3>Интерактивное добавление точек</h3>
     <button id="addInteractivePointBtn">Добавить точку интерактивно</button>
+    <button id="addRandomPointsBtn">Добавить точки рандомно</button>
     <h3>Управление полетом</h3>
     <button id="drawPath">Построить путь</button>
     <button id="startFlight" style="display:none;">Начать полет</button>
@@ -334,7 +335,18 @@
         }
     });
     let interactiveTowerMode = false; // Флаг для интерактивного добавления вышек
-
+    //
+    document.getElementById('addRandomPointsBtn').addEventListener('click', () => {
+        for (let i=0; i<7; i++){
+            let lat = Math.random()*1.0 + 56.0;
+            let lng = Math.random()*1.0+93.0;
+            let alt = Math.random()+5000;
+            addMarker(lat, lng, alt);
+            //alert(lat,lng,alt)
+            //alert('ХУУУУЙ')
+        }
+        
+    });
     // Добавление интерактивной вышки связи
     document.getElementById('addTowerBtn').addEventListener('click', () => {
         interactiveTowerMode = !interactiveTowerMode;
@@ -513,12 +525,6 @@
     
     
     
-    
-    
-    
-    
-    
-    
     async function placeTowers(distance, signalRadius) {
         const centerLat = config.map_center[1];
         const centerLng = config.map_center[0];
@@ -638,10 +644,24 @@
         // Добавляем координаты в массив позиций для линии
         positions.push(modelAsMercatorCoordinate.x, modelAsMercatorCoordinate.y, modelAsMercatorCoordinate.z);
     });
+    const curvePoints = [];
+    for (let i = 0; i < positions.length / 3; i++) {
+        curvePoints.push(new THREE.Vector3(positions[3 * i], positions[3 * i + 1], positions[3 * i + 2]));
+    }
+    const curve = new THREE.CatmullRomCurve3(curvePoints);
+    const smoothPositions = curve.getPoints(50);
+    const more_positions = [];
+    smoothPositions.forEach((point) => {
+        more_positions.push(point.x);
+        more_positions.push(point.y);
+        more_positions.push(point.z);
+    });
 
+    positions.length = 0
+    positions.push(...more_positions)
     // Создаем геометрию линии
     const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(more_positions, 3));
 
     // Создаем объект линии
     const line = new THREE.Line(geometry, material);
