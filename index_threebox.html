@@ -108,17 +108,19 @@
     <button id="startFlight" style="display:none;">Начать полет</button>
     
     <h3>Углы поворота</h3>
-    <div id="rotate_">Углы: - -</div>
-
+    <div id="rotate1_">Углы 1: - -</div>
+    <div id="rotate2_">Углы 2: - -</div>
+    <!--
     <h3>Время действия сигнала (sec)</h3>
-    <div id="timer">0</div> <!-- Секундомер -->
-    <div id="flightTime">Общее время полета: 0.00</div> <!-- Общее время полета -->
-    <div id="signalPercentage">Процент времени в сигнале: 0%</div> <!-- Процент времени в сигнале -->
+    <div id="timer">0</div> 
+    <div id="flightTime">Общее время полета: 0.00</div> 
+    <div id="signalPercentage">Процент времени в сигнале: 0%</div> 
 
     <div id="signalInfo">
         <div id="signalStrength">Уровень сигнала: -120 дБ</div>
         <div id="noiseLevel">Уровень шума: 0 дБ</div>
     </div>
+-->
 
     <!-- Контейнер для ввода высоты -->
     <div id="interactivePointContainer">
@@ -369,7 +371,7 @@
         for (let i=0; i<3; i++){
             let lat = Math.random()*0.1 + 48.5;
             let lng = Math.random()*0.1+44.5;
-            let alt = Math.random()+3000;
+            let alt = Math.random()*1000;
             addMarker(lat, lng, alt);
         }
         
@@ -944,7 +946,7 @@ document.getElementById('startFlight').addEventListener('click', () => {
             window.tb.update();
 
             // Запуск анимации для выбранного самолета
-            animateForPlane(model, points);
+            animateForPlane(model, points,planeNumber);
         });
     }
 });
@@ -1069,7 +1071,7 @@ document.getElementById('startFlight').addEventListener('click', () => {
                     animateForPlane(model, points);
                 });
             }
-            function animateForPlane(model, points) {
+            function animateForPlane(model, points,planeNumber) {
                 let startTime = performance.now();
                 let totalDistance = 0;
                 for (let i = 0; i < points.length - 1; i++) {
@@ -1182,21 +1184,26 @@ document.getElementById('startFlight').addEventListener('click', () => {
                 const tilt = calculateTilt(p1, p2);
                 model.setRotation({ x: 90, y: angle * (180 / Math.PI), z: tilt * (180 / Math.PI) });
                 let rot_angles = { x: 90, y: angle * (180 / Math.PI), z: tilt * (180 / Math.PI) };
-                document.getElementById('rotate_').textContent = ` Yaw: ${Number(rot_angles.y).toFixed(2)} Roll: ${Number(rot_angles.z).toFixed(2)}`;;
+                if (planeNumber === 1){
+                    document.getElementById('rotate1_').textContent = ` Yaw: ${Number(rot_angles.y).toFixed(2)} Roll: ${Number(rot_angles.z).toFixed(2)}`;
+                }
+                if (planeNumber === 2){
+                    document.getElementById('rotate2_').textContent = ` Yaw: ${Number(rot_angles.y).toFixed(2)} Roll: ${Number(rot_angles.z).toFixed(2)}`;
+                }
                 
                 window.tb.update();
 
                 // Обновляем общее время полета
-                const totalFlightTime = (elapsedTime / 1000).toFixed(2);  // Время в секундах
-                document.getElementById('flightTime').textContent = `Общее время полета: ${totalFlightTime}s`;
+                // const totalFlightTime = (elapsedTime / 1000).toFixed(2);  // Время в секундах
+                // document.getElementById('flightTime').textContent = `Общее время полета: ${totalFlightTime}s`;
 
-                // Обновляем процент времени в сигнале
-                const signalTimePercentage = (timeInsideSignal / totalFlightTime * 100).toFixed(2);
-                document.getElementById('signalPercentage').textContent = `Процент времени в сигнале: ${signalTimePercentage}%`;
+                // // Обновляем процент времени в сигнале
+                // const signalTimePercentage = (timeInsideSignal / totalFlightTime * 100).toFixed(2);
+                // document.getElementById('signalPercentage').textContent = `Процент времени в сигнале: ${signalTimePercentage}%`;
                 // В функции animate, добавляем вызов обновления сигнала
-                if (window.towers){
-                updateSignalInfo(pos.lat, pos.lng, pos.alt);
-                }
+                // if (window.towers){
+                // updateSignalInfo(pos.lat, pos.lng, pos.alt);
+                // }
                 if (progress < 1) {
                     requestAnimationFrame(animate);
                 } else {
