@@ -96,7 +96,7 @@
     <h3>Интерактивное добавление точек</h3>
     <button id="addInteractivePointBtn">Добавить точку интерактивно</button>
     <button id="clearPoints">Удалить точки и маршрут</button>
-    <button id="addPathSquere">Добавить зигзаг</button>
+    <button id="addPathSquere">Добавить заготовленный маршрут</button>
     <h3>Выберите самолет</h3>
     <select id="planeSelector">
     <option value="1">Самолет 1</option>
@@ -314,7 +314,6 @@
             if (!isNaN(newAlt)) {
                 activePoint.alt = newAlt;
                 activeMarker.getPopup().setText(`Точка маршрута: [${activePoint.lat}, ${activePoint.lng}, ${newAlt}]`);
-                alert(`Высота точки обновлена: ${newAlt} метров`);
                 document.getElementById('editPointContainer').style.display = 'none';
             } else {
                 alert('Пожалуйста, введите валидную высоту.');
@@ -332,7 +331,6 @@
         interactiveMode = !interactiveMode;
         if (interactiveMode) {
             document.getElementById('interactivePointContainer').style.display = 'block';
-            alert("Нажмите на карту, чтобы добавить точку.");
         } else {
             document.getElementById('interactivePointContainer').style.display = 'none';
         }
@@ -353,7 +351,6 @@
                 const alt = parseFloat(document.getElementById('pointAlt').value);
                 if (!isNaN(alt)) {
                     addMarker(lat, lng, alt);
-                    alert(`Точка добавлена: [${lat}, ${lng}, ${alt}]`);
                     document.getElementById('interactivePointContainer').style.display = 'none';
                     interactiveMode = false;
                 } else {
@@ -538,11 +535,6 @@
         
 
     }
-
-    
-    
-    
-    
     
     
     const towers = [];  // Массив для хранения данных о башнях
@@ -725,7 +717,6 @@
         // Store the custom layer's ID for later removal
         customPathLayers.push(layerId);
     
-        alert("3D путь построен!");
         document.getElementById('startFlight').style.display = 'inline-block';
     }
     
@@ -753,7 +744,6 @@ document.getElementById('clearPoints').addEventListener('click', () => {
     markers.length = 0;
     customPathLayers = [];  // Clear the custom path layers array
 
-    alert("Все точки и маршруты удалены.");
 });
 
 
@@ -824,7 +814,6 @@ function buildZigzagRoute({ topLeft, bottomRight, numZigZagLines ,heights}) {
         addMarker(point.lat, point.lng);
     });
 
-    alert("Зигзагообразный маршрут в форме буквы 'Z' построен!");
 }
 
 
