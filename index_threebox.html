@@ -107,6 +107,9 @@
     <button id="drawPath">Построить путь</button>
     <button id="startFlight" style="display:none;">Начать полет</button>
     
+    <h3>Углы поворота</h3>
+    <div id="rotate_">Углы: - -</div>
+
     <h3>Время действия сигнала (sec)</h3>
     <div id="timer">0</div> <!-- Секундомер -->
     <div id="flightTime">Общее время полета: 0.00</div> <!-- Общее время полета -->
@@ -363,13 +366,11 @@
     let interactiveTowerMode = false; // Флаг для интерактивного добавления вышек
     //
     document.getElementById('addRandomPointsBtn').addEventListener('click', () => {
-        for (let i=0; i<7; i++){
-            let lat = Math.random()*1.0 + 56.0;
-            let lng = Math.random()*1.0+93.0;
-            let alt = Math.random()+5000;
+        for (let i=0; i<3; i++){
+            let lat = Math.random()*0.1 + 48.5;
+            let lng = Math.random()*0.1+44.5;
+            let alt = Math.random()+3000;
             addMarker(lat, lng, alt);
-            //alert(lat,lng,alt)
-            //alert('ХУУУУЙ')
         }
         
     });
@@ -662,7 +663,6 @@
         alert("Добавьте хотя бы две точки для построения пути.");
         return;
     }
-
     const THREE = window.THREE;
     const material = new THREE.LineBasicMaterial({ color: config.line_color, linewidth: 3, transparent: false, depthWrite: false});
 
@@ -671,16 +671,66 @@
 
     points.forEach((point) => {
         const { lat, lng, alt } = point;
-
+        //alert(alt)
         // Преобразуем географические координаты в Mercator
+        
         const modelOrigin = new maplibregl.LngLat(lng, lat);
-        const modelAltitude = alt || 0; // Используем высоту из данных или 0
+        const modelAltitude = alt //|| 0; // Используем высоту из данных или 0
         const modelAsMercatorCoordinate = maplibregl.MercatorCoordinate.fromLngLat(modelOrigin, modelAltitude);
 
         // Добавляем координаты в массив позиций для линии
         positions.push(modelAsMercatorCoordinate.x, modelAsMercatorCoordinate.y, modelAsMercatorCoordinate.z);
     });
+    const curvePoints = [];
+    for (let i = 0; i < positions.length / 3; i++) {
+        curvePoints.push(new THREE.Vector3(positions[3 * i], positions[3 * i + 1], positions[3 * i + 2]));
+    }
+    const curve = new THREE.CatmullRomCurve3(curvePoints);
+    const smoothPositions = curve.getPoints(25*points.length);
+    const more_positions = [];
+    smoothPositions.forEach((point) => {
+        more_positions.push(point.x);
+        more_positions.push(point.y);
+        more_positions.push(point.z);
+    });
+    const convertedPoints = [];
 
+    // Iterate over the positions array in steps of three
+    for (let i = 0; i < more_positions.length; i += 3) {
+        const x = more_positions[i];
+        const y = more_positions[i + 1];
+        const z = more_positions[i + 2];
+    
+        // Create a MercatorCoordinate object from x, y, z
+        const mercatorCoord = new maplibregl.MercatorCoordinate(x, y, z);
+    
+        // Convert back to LngLat and get the altitude
+        const lngLat = mercatorCoord.toLngLat();
+        const altitude = 3*(10**7)*z//mercatorCoord.z; // or use z directly if needed
+        //alert(altitude)
+        // Create an object with the geographic coordinates
+        const point = {
+            lng: lngLat.lng,
+            lat: lngLat.lat,
+            alt: altitude
+        };
+        //alert(point.alt)
+        // Add the point to the convertedPoints array
+        convertedPoints.push(point);
+    }
+
+
+
+    if (currentPlane === 1) {
+        points1.length = 0
+        points1.push(...convertedPoints)
+    }
+    else{
+        points2.length = 0
+        points2.push(...convertedPoints)
+    }
+    positions.length = 0
+    positions.push(...more_positions)
     // Создаем геометрию линии
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
@@ -1036,6 +1086,7 @@ document.getElementById('startFlight').addEventListener('click', () => {
                 let currentSegment = 0;
             
                 function interpolate(p1, p2, progress) {
+
                     return {
                         lat: p1.lat + (p2.lat - p1.lat) * progress,
                         lng: p1.lng + (p2.lng - p1.lng) * progress,
@@ -1130,7 +1181,9 @@ document.getElementById('startFlight').addEventListener('click', () => {
                 // Поворот и другие действия с самолетом
                 const tilt = calculateTilt(p1, p2);
                 model.setRotation({ x: 90, y: angle * (180 / Math.PI), z: tilt * (180 / Math.PI) });
-
+                let rot_angles = { x: 90, y: angle * (180 / Math.PI), z: tilt * (180 / Math.PI) };
+                document.getElementById('rotate_').textContent = ` Yaw: ${Number(rot_angles.y).toFixed(2)} Roll: ${Number(rot_angles.z).toFixed(2)}`;;
+                
                 window.tb.update();
 
                 // Обновляем общее время полета
